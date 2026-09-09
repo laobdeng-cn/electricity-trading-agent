@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.repositories.market import MarketDataRepository
+from app.services.analysis import MarketAnalysisService
 from app.services.market import MarketDataService
 
 
@@ -29,3 +30,13 @@ def get_market_service(
 ) -> MarketDataService:
     repository = MarketDataRepository(db=db)
     return MarketDataService(repository=repository)
+
+
+def get_market_analysis_service(
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+) -> MarketAnalysisService:
+    repository = MarketDataRepository(db=db)
+    return MarketAnalysisService(repository=repository)
