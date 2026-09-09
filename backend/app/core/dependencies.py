@@ -1,11 +1,28 @@
+from collections.abc import Generator
+from typing import Annotated
+
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from app.db.session import SessionLocal
 from app.repositories.market import MarketDataRepository
 from app.services.market import MarketDataService
 
 
-market_repository = MarketDataRepository()
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
 
 
-def get_market_service() -> MarketDataService:
-    return MarketDataService(
-        repository=market_repository
-    )
+def get_market_service(
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+) -> MarketDataService:
+    repository = MarketDataRepository(db=db)
+    return MarketDataService(repository=repository)
