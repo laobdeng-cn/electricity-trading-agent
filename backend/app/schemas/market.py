@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MarketType(str, Enum):
@@ -42,3 +42,5 @@ class MarketDataCreate(BaseModel):
 class MarketDataResponse(MarketDataCreate):
     id: int
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
