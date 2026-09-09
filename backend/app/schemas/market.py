@@ -28,6 +28,13 @@ class MarketDataCreate(BaseModel):
         description="市场电价",
     )
 
+    forecast_price: float | None = Field(
+        default=None,
+        gt=-10000,
+        lt=100000,
+        description="预测电价，可选",
+    )
+
     load_mw: float = Field(
         ge=0,
         description="系统负荷 MW",
