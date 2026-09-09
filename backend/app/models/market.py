@@ -37,6 +37,11 @@ class MarketData(Base):
         nullable=False,
     )
 
+    forecast_price: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
     load_mw: Mapped[float] = mapped_column(
         Float,
         nullable=False,
