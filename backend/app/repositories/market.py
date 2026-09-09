@@ -1,40 +1,40 @@
-from datetime import datetime, timezone
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.schemas.market import (
-    MarketDataCreate,
-    MarketDataResponse,
-)
+from app.models.market import MarketData
+from app.schemas.market import MarketDataCreate
 
 
 class MarketDataRepository:
-    def __init__(self) -> None:
-        self._items: list[MarketDataResponse] = []
-        self._next_id: int = 1
+    def __init__(self, db: Session) -> None:
+        self.db = db
 
     def create(
         self,
         payload: MarketDataCreate,
-    ) -> MarketDataResponse:
-        market_data = MarketDataResponse(
-            id=self._next_id,
-            created_at=datetime.now(timezone.utc),
-            **payload.model_dump(),
+    ) -> MarketData:
+        market_data = MarketData(
+            market=payload.market.value,
+            node=payload.node,
+            timestamp=payload.timestamp,
+            price=payload.price,
+            load_mw=payload.load_mw,
+            renewable_mw=payload.renewable_mw,
         )
 
-        self._items.append(market_data)
-        self._next_id += 1
+        self.db.add(market_data)
+        self.db.commit()
+        self.db.refresh(market_data)
 
         return market_data
 
-    def list_all(self) -> list[MarketDataResponse]:
-        return list(self._items)
+    def list_all(self) -> list[MarketData]:
+        statement = select(MarketData).order_by(MarketData.id)
+        result = self.db.scalars(statement)
+        return list(result.all())
 
     def get_by_id(
         self,
         market_data_id: int,
-    ) -> MarketDataResponse | None:
-        for item in self._items:
-            if item.id == market_data_id:
-                return item
-
-        return None
+    ) -> MarketData | None:
+        return self.db.get(MarketData, market_data_id)
