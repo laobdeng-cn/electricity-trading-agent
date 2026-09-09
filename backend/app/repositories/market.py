@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.market import MarketData
@@ -22,9 +23,13 @@ class MarketDataRepository:
             renewable_mw=payload.renewable_mw,
         )
 
-        self.db.add(market_data)
-        self.db.commit()
-        self.db.refresh(market_data)
+        try:
+            self.db.add(market_data)
+            self.db.commit()
+            self.db.refresh(market_data)
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
 
         return market_data
 
