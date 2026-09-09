@@ -8,6 +8,7 @@ from fastapi import (
 )
 
 from app.core.dependencies import get_market_service
+from app.models.market import MarketData
 from app.schemas.market import (
     MarketDataCreate,
     MarketDataResponse,
@@ -32,7 +33,7 @@ def create_market_data(
         MarketDataService,
         Depends(get_market_service),
     ],
-) -> MarketDataResponse:
+) -> MarketData:
     return service.create_market_data(payload)
 
 
@@ -45,7 +46,7 @@ def list_market_data(
         MarketDataService,
         Depends(get_market_service),
     ],
-) -> list[MarketDataResponse]:
+) -> list[MarketData]:
     return service.list_market_data()
 
 
@@ -59,10 +60,8 @@ def get_market_data(
         MarketDataService,
         Depends(get_market_service),
     ],
-) -> MarketDataResponse:
-    market_data = service.get_market_data(
-        market_data_id
-    )
+) -> MarketData:
+    market_data = service.get_market_data(market_data_id)
 
     if market_data is None:
         raise HTTPException(
