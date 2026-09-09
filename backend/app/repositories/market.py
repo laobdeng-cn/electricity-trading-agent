@@ -19,6 +19,7 @@ class MarketDataRepository:
             node=payload.node,
             timestamp=payload.timestamp,
             price=payload.price,
+            forecast_price=payload.forecast_price,
             load_mw=payload.load_mw,
             renewable_mw=payload.renewable_mw,
         )
