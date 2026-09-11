@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.llm.deepseek import DeepSeekClient
+from app.llm.deepseek_agent import DeepSeekToolCallingClient
 from app.repositories.market import MarketDataRepository
+from app.services.agent import MarketAgentService
 from app.services.analysis import MarketAnalysisService
 from app.services.llm_analysis import LLMMarketAnalysisService
 from app.services.market import MarketDataService
@@ -61,4 +63,23 @@ def get_llm_market_analysis_service(
     return LLMMarketAnalysisService(
         analysis_service=analysis_service,
         llm_client=llm_client,
+    )
+
+
+def get_market_agent_service(
+    analysis_service: Annotated[
+        MarketAnalysisService,
+        Depends(get_market_analysis_service),
+    ],
+) -> MarketAgentService:
+    agent_runner = DeepSeekToolCallingClient(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        model=settings.deepseek_model,
+        timeout_seconds=settings.deepseek_timeout_seconds,
+    )
+
+    return MarketAgentService(
+        analysis_service=analysis_service,
+        agent_runner=agent_runner,
     )
