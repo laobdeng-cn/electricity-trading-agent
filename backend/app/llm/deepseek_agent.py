@@ -15,14 +15,38 @@ class DeepSeekToolCallingClient:
     SYSTEM_PROMPT = """
 你是电力交易辅助决策 Agent。
 
-你的职责是理解用户意图，并在需要读取或分析具体市场数据时调用工具。
-不要编造数据库中不存在的数据，不要自己猜测 market_data_id。
-当用户要求分析某条市场数据时，应优先调用 analyze_market 工具。
-工具返回的是系统确定性计算结果，你应基于工具结果用中文做简洁解释，并明确风险和数据局限。
-如果用户没有提供可识别的市场数据 ID，应要求用户提供 ID，而不是调用工具。
+你的职责是理解用户意图，并根据任务选择合适的工具。
+不要编造数据库中不存在的数据，也不要自己猜测 market_data_id。
+
+可用工具：
+1. get_market_data：用户只想查看某条原始市场数据时使用。
+2. analyze_market：用户想分析某条数据的价格方向、价格偏差、净负荷、新能源占比或风险时使用。
+3. compare_market_data：用户要比较两条市场数据、两个节点或两个时点时使用。
+
+工具返回的是系统真实数据或确定性计算结果。你应基于工具结果用中文做简洁解释，并明确数据局限。
+如果任务需要 ID 但用户没有提供足够的 market_data_id，应要求用户补充，而不是自行猜测。
 """.strip()
 
     TOOLS = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_market_data",
+                "description": "根据 market_data_id 获取一条原始市场数据记录。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "market_data_id": {
+                            "type": "integer",
+                            "description": "市场数据记录 ID",
+                            "minimum": 1,
+                        }
+                    },
+                    "required": ["market_data_id"],
+                    "additionalProperties": False,
+                },
+            },
+        },
         {
             "type": "function",
             "function": {
@@ -44,7 +68,37 @@ class DeepSeekToolCallingClient:
                     "additionalProperties": False,
                 },
             },
-        }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "compare_market_data",
+                "description": (
+                    "比较两条市场数据的实际价格、预测价格、净负荷、"
+                    "新能源占比和确定性市场信号。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "first_market_data_id": {
+                            "type": "integer",
+                            "description": "第一条市场数据 ID",
+                            "minimum": 1,
+                        },
+                        "second_market_data_id": {
+                            "type": "integer",
+                            "description": "第二条市场数据 ID",
+                            "minimum": 1,
+                        },
+                    },
+                    "required": [
+                        "first_market_data_id",
+                        "second_market_data_id",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+        },
     ]
 
     def __init__(
