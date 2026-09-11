@@ -7,8 +7,17 @@ class AgentChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
 
 
+class GetMarketDataToolArgs(BaseModel):
+    market_data_id: int = Field(gt=0)
+
+
 class AnalyzeMarketToolArgs(BaseModel):
     market_data_id: int = Field(gt=0)
+
+
+class CompareMarketDataToolArgs(BaseModel):
+    first_market_data_id: int = Field(gt=0)
+    second_market_data_id: int = Field(gt=0)
 
 
 class AgentToolExecution(BaseModel):
