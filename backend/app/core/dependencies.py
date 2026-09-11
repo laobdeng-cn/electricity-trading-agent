@@ -4,9 +4,12 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.session import SessionLocal
+from app.llm.deepseek import DeepSeekClient
 from app.repositories.market import MarketDataRepository
 from app.services.analysis import MarketAnalysisService
+from app.services.llm_analysis import LLMMarketAnalysisService
 from app.services.market import MarketDataService
 
 
@@ -40,3 +43,22 @@ def get_market_analysis_service(
 ) -> MarketAnalysisService:
     repository = MarketDataRepository(db=db)
     return MarketAnalysisService(repository=repository)
+
+
+def get_llm_market_analysis_service(
+    analysis_service: Annotated[
+        MarketAnalysisService,
+        Depends(get_market_analysis_service),
+    ],
+) -> LLMMarketAnalysisService:
+    llm_client = DeepSeekClient(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        model=settings.deepseek_model,
+        timeout_seconds=settings.deepseek_timeout_seconds,
+    )
+
+    return LLMMarketAnalysisService(
+        analysis_service=analysis_service,
+        llm_client=llm_client,
+    )
