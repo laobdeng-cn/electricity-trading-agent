@@ -11,6 +11,7 @@ from app.llm.deepseek_agent import DeepSeekToolCallingClient
 from app.repositories.market import MarketDataRepository
 from app.services.agent import MarketAgentService
 from app.services.analysis import MarketAnalysisService
+from app.services.comparison import MarketComparisonService
 from app.services.llm_analysis import LLMMarketAnalysisService
 from app.services.market import MarketDataService
 
@@ -47,6 +48,17 @@ def get_market_analysis_service(
     return MarketAnalysisService(repository=repository)
 
 
+def get_market_comparison_service(
+    analysis_service: Annotated[
+        MarketAnalysisService,
+        Depends(get_market_analysis_service),
+    ],
+) -> MarketComparisonService:
+    return MarketComparisonService(
+        analysis_service=analysis_service,
+    )
+
+
 def get_llm_market_analysis_service(
     analysis_service: Annotated[
         MarketAnalysisService,
@@ -67,9 +79,17 @@ def get_llm_market_analysis_service(
 
 
 def get_market_agent_service(
+    market_service: Annotated[
+        MarketDataService,
+        Depends(get_market_service),
+    ],
     analysis_service: Annotated[
         MarketAnalysisService,
         Depends(get_market_analysis_service),
+    ],
+    comparison_service: Annotated[
+        MarketComparisonService,
+        Depends(get_market_comparison_service),
     ],
 ) -> MarketAgentService:
     agent_runner = DeepSeekToolCallingClient(
@@ -80,6 +100,8 @@ def get_market_agent_service(
     )
 
     return MarketAgentService(
+        market_service=market_service,
         analysis_service=analysis_service,
+        comparison_service=comparison_service,
         agent_runner=agent_runner,
     )
