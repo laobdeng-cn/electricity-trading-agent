@@ -7,6 +7,7 @@ class MarketAgentState(TypedDict):
     """LangGraph state shared by the market-agent nodes."""
 
     messages: list[dict[str, Any]]
+    pending_tool_calls: list[dict[str, Any]]
     tool_executions: list[AgentToolExecution]
     final_answer: str | None
     steps: int
