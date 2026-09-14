@@ -30,3 +30,5 @@ class AgentChatResponse(BaseModel):
     answer: str
     model: str
     tool_executions: list[AgentToolExecution] = Field(default_factory=list)
+    steps: int = 0
+    visited_nodes: list[str] = Field(default_factory=list)
