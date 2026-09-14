@@ -51,8 +51,12 @@ class DeepSeekMarketAgentGraphRunner:
                 "LangGraph agent finished without a final answer"
             )
 
+        visited_nodes = state["visited_nodes"]
+
         return AgentChatResponse(
             answer=answer.strip(),
             model=self.client.model,
             tool_executions=state["tool_executions"],
+            steps=len(visited_nodes),
+            visited_nodes=visited_nodes,
         )
