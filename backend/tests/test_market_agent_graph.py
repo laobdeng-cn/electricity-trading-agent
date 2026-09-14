@@ -1,5 +1,7 @@
 from typing import Any
 
+import pytest
+
 from app.graph.market_agent_graph import MarketAgentGraphRunner
 
 
@@ -94,3 +96,51 @@ def test_langgraph_can_finish_without_tool_call() -> None:
     assert state["final_answer"] == "请提供 market_data_id。"
     assert state["steps"] == 1
     assert state["tool_executions"] == []
+
+
+def test_langgraph_stops_when_agent_exceeds_max_steps() -> None:
+    calls = 0
+
+    def looping_agent_step(
+        messages: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        return {
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": f"call-{calls}",
+                    "type": "function",
+                    "function": {
+                        "name": "analyze_market",
+                        "arguments": '{"market_data_id": 2}',
+                    },
+                }
+            ],
+        }
+
+    def tool_executor(
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "market_data_id": arguments["market_data_id"],
+            "signal": "bullish",
+        }
+
+    runner = MarketAgentGraphRunner(
+        agent_step=looping_agent_step,
+        tool_executor=tool_executor,
+        max_steps=2,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="LangGraph agent exceeded maximum steps",
+    ):
+        runner.run(
+            [{"role": "user", "content": "持续分析市场数据 2"}]
+        )
+
+    assert calls == 2
