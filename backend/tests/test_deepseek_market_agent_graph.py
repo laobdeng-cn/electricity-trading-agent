@@ -70,6 +70,8 @@ def test_deepseek_langgraph_runs_tool_cycle() -> None:
     assert len(response.tool_executions) == 1
     assert response.tool_executions[0].tool_name == "analyze_market"
     assert response.tool_executions[0].result["signal"] == "bullish"
+    assert response.steps == 3
+    assert response.visited_nodes == ["agent", "tools", "agent"]
     assert len(client.seen_messages) == 2
     assert client.seen_messages[0][0]["role"] == "system"
     assert client.seen_messages[0][1]["role"] == "user"
@@ -100,4 +102,6 @@ def test_deepseek_langgraph_can_answer_without_tool() -> None:
 
     assert response.answer == "请提供 market_data_id。"
     assert response.tool_executions == []
+    assert response.steps == 1
+    assert response.visited_nodes == ["agent"]
     assert len(client.seen_messages) == 1
