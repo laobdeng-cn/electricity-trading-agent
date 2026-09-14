@@ -52,6 +52,7 @@ class MarketAgentGraphRunner:
             "tool_executions": [],
             "final_answer": None,
             "steps": 0,
+            "visited_nodes": [],
         }
         return self.graph.invoke(initial_state)
 
@@ -86,6 +87,7 @@ class MarketAgentGraphRunner:
             "pending_tool_calls": tool_calls,
             "final_answer": final_answer,
             "steps": state["steps"] + 1,
+            "visited_nodes": [*state["visited_nodes"], "agent"],
         }
 
     @staticmethod
@@ -128,6 +130,7 @@ class MarketAgentGraphRunner:
             "messages": messages,
             "pending_tool_calls": [],
             "tool_executions": executions,
+            "visited_nodes": [*state["visited_nodes"], "tools"],
         }
 
     @staticmethod
