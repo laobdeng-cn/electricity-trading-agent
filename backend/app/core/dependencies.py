@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.graph.deepseek_market_agent import DeepSeekMarketAgentGraphRunner
 from app.llm.deepseek import DeepSeekClient
 from app.llm.deepseek_agent import DeepSeekToolCallingClient
 from app.repositories.market import MarketDataRepository
@@ -92,11 +93,14 @@ def get_market_agent_service(
         Depends(get_market_comparison_service),
     ],
 ) -> MarketAgentService:
-    agent_runner = DeepSeekToolCallingClient(
+    deepseek_client = DeepSeekToolCallingClient(
         api_key=settings.deepseek_api_key,
         base_url=settings.deepseek_base_url,
         model=settings.deepseek_model,
         timeout_seconds=settings.deepseek_timeout_seconds,
+    )
+    agent_runner = DeepSeekMarketAgentGraphRunner(
+        client=deepseek_client,
     )
 
     return MarketAgentService(
