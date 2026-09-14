@@ -132,7 +132,7 @@ class DeepSeekToolCallingClient:
         executions: list[AgentToolExecution] = []
 
         for _ in range(self.max_tool_rounds + 1):
-            assistant_message = self._request(messages)
+            assistant_message = self.request_once(messages)
             tool_calls = assistant_message.get("tool_calls") or []
 
             if not tool_calls:
@@ -182,6 +182,18 @@ class DeepSeekToolCallingClient:
                 )
 
         raise LLMClientError("Agent exceeded maximum tool rounds")
+
+    def request_once(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Perform one model step for a caller-managed agent loop."""
+        if not self.api_key:
+            raise LLMConfigurationError(
+                "DeepSeek API key is not configured"
+            )
+
+        return self._request(messages)
 
     def _request(
         self,
