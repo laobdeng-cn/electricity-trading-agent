@@ -11,3 +11,4 @@ class MarketAgentState(TypedDict):
     tool_executions: list[AgentToolExecution]
     final_answer: str | None
     steps: int
+    visited_nodes: list[str]
