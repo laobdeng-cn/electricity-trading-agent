@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.agents.market_analyst import MarketDataNotFoundError
 from app.core.dependencies import get_multi_agent_runner
 from app.main import app
 
@@ -36,6 +37,11 @@ class FakeMultiAgentRunner:
         }
 
 
+class MissingMarketDataRunner:
+    def run(self, request: str):
+        raise MarketDataNotFoundError("Market data 999 not found")
+
+
 def test_multi_agent_api_returns_structured_workflow_result() -> None:
     app.dependency_overrides[get_multi_agent_runner] = (
         lambda: FakeMultiAgentRunner()
@@ -61,3 +67,40 @@ def test_multi_agent_api_returns_structured_workflow_result() -> None:
         "decision",
     ]
     assert body["final_answer"] == "决策动作 cautious_buy。"
+
+
+def test_multi_agent_api_returns_404_when_market_data_is_missing() -> None:
+    app.dependency_overrides[get_multi_agent_runner] = (
+        lambda: MissingMarketDataRunner()
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/multi-agent/analyze",
+                json={"market_data_id": 999},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Market data 999 not found",
+    }
+
+
+def test_multi_agent_api_rejects_invalid_market_data_id() -> None:
+    app.dependency_overrides[get_multi_agent_runner] = (
+        lambda: FakeMultiAgentRunner()
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/multi-agent/analyze",
+                json={"market_data_id": 0},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
