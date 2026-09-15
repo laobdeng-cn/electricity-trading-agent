@@ -84,8 +84,6 @@ class MultiAgentGraphRunner:
         started_at: float,
     ) -> dict[str, float]:
         return {
-            *(),
-        } if False else {
             **state["agent_latency_ms"],
             agent_name: round((perf_counter() - started_at) * 1000, 3),
         }
