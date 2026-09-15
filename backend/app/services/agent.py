@@ -48,6 +48,20 @@ class MarketAgentService:
         tool_name: str,
         arguments: dict[str, Any],
     ) -> dict[str, Any]:
+        try:
+            return self._dispatch_tool(tool_name, arguments)
+        except LLMClientError:
+            raise
+        except Exception as exc:
+            raise LLMClientError(
+                f"Tool execution failed: {tool_name}"
+            ) from exc
+
+    def _dispatch_tool(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
         if tool_name == "get_market_data":
             return self._execute_get_market_data(arguments)
 
