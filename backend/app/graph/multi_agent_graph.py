@@ -12,20 +12,26 @@ DecisionAgentStep = Callable[
     [dict[str, Any], dict[str, Any]],
     dict[str, Any],
 ]
+ExplanationAgentStep = Callable[
+    [dict[str, Any], dict[str, Any], dict[str, Any]],
+    str,
+]
 
 
 class MultiAgentGraphRunner:
-    """Three-agent workflow used before wiring a production endpoint."""
+    """Deterministic market/risk/decision workflow with optional explanation."""
 
     def __init__(
         self,
         market_analyst: MarketAnalystStep,
         risk_agent: RiskAgentStep,
         decision_agent: DecisionAgentStep,
+        explanation_agent: ExplanationAgentStep | None = None,
     ) -> None:
         self.market_analyst = market_analyst
         self.risk_agent = risk_agent
         self.decision_agent = decision_agent
+        self.explanation_agent = explanation_agent
         self.graph = self._build_graph()
 
     def _build_graph(self):
@@ -36,7 +42,14 @@ class MultiAgentGraphRunner:
         workflow.add_edge(START, "market_analyst")
         workflow.add_edge("market_analyst", "risk")
         workflow.add_edge("risk", "decision")
-        workflow.add_edge("decision", END)
+
+        if self.explanation_agent is None:
+            workflow.add_edge("decision", END)
+        else:
+            workflow.add_node("explanation", self._explanation_node)
+            workflow.add_edge("decision", "explanation")
+            workflow.add_edge("explanation", END)
+
         return workflow.compile()
 
     def run(self, request: str) -> MultiAgentState:
@@ -45,6 +58,7 @@ class MultiAgentGraphRunner:
             "market_analysis": None,
             "risk_analysis": None,
             "decision_analysis": None,
+            "explanation": None,
             "final_answer": None,
             "visited_agents": [],
         }
@@ -106,5 +120,37 @@ class MultiAgentGraphRunner:
             "visited_agents": [
                 *state["visited_agents"],
                 "decision",
+            ],
+        }
+
+    def _explanation_node(
+        self,
+        state: MultiAgentState,
+    ) -> dict[str, Any]:
+        market_analysis = state["market_analysis"]
+        risk_analysis = state["risk_analysis"]
+        decision_analysis = state["decision_analysis"]
+        if (
+            market_analysis is None
+            or risk_analysis is None
+            or decision_analysis is None
+        ):
+            raise RuntimeError(
+                "Explanation agent requires market, risk, and decision analyses"
+            )
+        if self.explanation_agent is None:
+            raise RuntimeError("Explanation agent is not configured")
+
+        explanation = self.explanation_agent(
+            market_analysis,
+            risk_analysis,
+            decision_analysis,
+        )
+        return {
+            "explanation": explanation,
+            "final_answer": explanation,
+            "visited_agents": [
+                *state["visited_agents"],
+                "explanation",
             ],
         }
