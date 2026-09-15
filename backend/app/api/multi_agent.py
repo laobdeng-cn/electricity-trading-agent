@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.agents.market_analyst import MarketDataNotFoundError
 from app.core.dependencies import get_multi_agent_runner
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
 from app.schemas.multi_agent import (
@@ -27,7 +28,13 @@ def analyze_with_multi_agent(
         Depends(get_multi_agent_runner),
     ],
 ) -> MultiAgentAnalyzeResponse:
-    state = runner.run(f"分析市场数据 {payload.market_data_id}")
+    try:
+        state = runner.run(f"分析市场数据 {payload.market_data_id}")
+    except MarketDataNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
 
     return MultiAgentAnalyzeResponse(
         market_analysis=state["market_analysis"] or {},
