@@ -8,5 +8,6 @@ class MultiAgentState(TypedDict):
     market_analysis: dict[str, Any] | None
     risk_analysis: dict[str, Any] | None
     decision_analysis: dict[str, Any] | None
+    explanation: str | None
     final_answer: str | None
     visited_agents: list[str]
