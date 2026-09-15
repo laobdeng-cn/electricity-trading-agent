@@ -59,6 +59,10 @@ class MultiAgentGraphRunner:
             "risk_analysis": None,
             "decision_analysis": None,
             "explanation": None,
+            "explanation_status": None,
+            "explanation_model": None,
+            "explanation_latency_ms": None,
+            "explanation_error": None,
             "final_answer": None,
             "visited_agents": [],
         }
@@ -141,13 +145,39 @@ class MultiAgentGraphRunner:
         if self.explanation_agent is None:
             raise RuntimeError("Explanation agent is not configured")
 
-        explanation = self.explanation_agent(
-            market_analysis,
-            risk_analysis,
-            decision_analysis,
+        observer = getattr(
+            self.explanation_agent,
+            "generate_observation",
+            None,
         )
+        if callable(observer):
+            observation = observer(
+                market_analysis,
+                risk_analysis,
+                decision_analysis,
+            )
+            explanation = observation.explanation
+            explanation_status = observation.status
+            explanation_model = observation.model
+            explanation_latency_ms = observation.latency_ms
+            explanation_error = observation.error
+        else:
+            explanation = self.explanation_agent(
+                market_analysis,
+                risk_analysis,
+                decision_analysis,
+            )
+            explanation_status = None
+            explanation_model = None
+            explanation_latency_ms = None
+            explanation_error = None
+
         return {
             "explanation": explanation,
+            "explanation_status": explanation_status,
+            "explanation_model": explanation_model,
+            "explanation_latency_ms": explanation_latency_ms,
+            "explanation_error": explanation_error,
             "final_answer": explanation,
             "visited_agents": [
                 *state["visited_agents"],
