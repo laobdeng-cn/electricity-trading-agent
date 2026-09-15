@@ -1,3 +1,4 @@
+from app.agents.decision_agent import DecisionAgent
 from app.agents.market_analyst import MarketAnalystAgent
 from app.agents.risk_agent import RiskAgent
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
@@ -43,14 +44,16 @@ def test_market_analyst_agent_uses_analysis_service() -> None:
     assert result["signal"] == "bullish"
 
 
-def test_multi_agent_graph_can_use_real_market_and_risk_agents() -> None:
+def test_multi_agent_graph_can_use_real_market_risk_and_decision_agents() -> None:
     analysis_service = FakeAnalysisService(build_analysis())
     market_analyst = MarketAnalystAgent(analysis_service)
     risk_agent = RiskAgent()
+    decision_agent = DecisionAgent()
 
     runner = MultiAgentGraphRunner(
         market_analyst=market_analyst,
         risk_agent=risk_agent,
+        decision_agent=decision_agent,
     )
 
     result = runner.run("分析市场数据 2")
@@ -58,5 +61,10 @@ def test_multi_agent_graph_can_use_real_market_and_risk_agents() -> None:
     assert result["market_analysis"]["price_gap_percent"] == 1.88
     assert result["risk_analysis"]["risk_level"] == "medium"
     assert result["risk_analysis"]["risk_score"] == 18
-    assert result["visited_agents"] == ["market_analyst", "risk"]
-    assert "风险等级 medium" in result["final_answer"]
+    assert result["decision_analysis"]["action"] == "cautious_buy"
+    assert result["visited_agents"] == [
+        "market_analyst",
+        "risk",
+        "decision",
+    ]
+    assert "决策动作 cautious_buy" in result["final_answer"]
