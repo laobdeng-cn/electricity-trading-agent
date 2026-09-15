@@ -2,6 +2,7 @@ from typing import Any
 
 import pytest
 
+from app.agents.explanation_agent import ExplanationObservation
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
 
 
@@ -90,6 +91,66 @@ def test_multi_agent_graph_records_success_path_timings() -> None:
         latency >= 0
         for latency in state["agent_latency_ms"].values()
     )
+    assert state["agent_status"] == {
+        "market_analyst": "success",
+        "risk": "success",
+        "decision": "success",
+    }
+
+
+def test_multi_agent_graph_marks_explanation_fallback() -> None:
+    class FallbackExplanationAgent:
+        def __call__(
+            self,
+            market_analysis: dict[str, Any],
+            risk_analysis: dict[str, Any],
+            decision_analysis: dict[str, Any],
+        ) -> str:
+            return self.generate_observation(
+                market_analysis,
+                risk_analysis,
+                decision_analysis,
+            ).explanation
+
+        def generate_observation(
+            self,
+            market_analysis: dict[str, Any],
+            risk_analysis: dict[str, Any],
+            decision_analysis: dict[str, Any],
+        ) -> ExplanationObservation:
+            return ExplanationObservation(
+                explanation="AI解释暂不可用；使用确定性摘要。",
+                status="fallback",
+                model="deepseek-v4-flash",
+                latency_ms=12.3,
+                error="timeout",
+            )
+
+    runner = MultiAgentGraphRunner(
+        market_analyst=lambda request: {
+            "market_data_id": 2,
+            "signal": "bullish",
+        },
+        risk_agent=lambda analysis: {
+            "risk_level": "medium",
+            "risk_score": 18,
+        },
+        decision_agent=lambda market, risk: {
+            "action": "cautious_buy",
+            "summary": "决策动作 cautious_buy。",
+        },
+        explanation_agent=FallbackExplanationAgent(),
+    )
+
+    state = runner.run("分析市场数据 2")
+
+    assert state["explanation_status"] == "fallback"
+    assert state["agent_status"] == {
+        "market_analyst": "success",
+        "risk": "success",
+        "decision": "success",
+        "explanation": "fallback",
+    }
 
 
 def test_multi_agent_graph_requires_market_analysis_before_risk() -> None:
