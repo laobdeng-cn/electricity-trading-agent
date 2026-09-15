@@ -1,6 +1,9 @@
 from typing import Any, Literal, TypedDict
 
 
+AgentExecutionStatus = Literal["success", "fallback", "failed"]
+
+
 class MultiAgentState(TypedDict):
     """Shared state for the multi-agent workflow prototype."""
 
@@ -15,5 +18,6 @@ class MultiAgentState(TypedDict):
     explanation_error: str | None
     workflow_latency_ms: float | None
     agent_latency_ms: dict[str, float]
+    agent_status: dict[str, AgentExecutionStatus]
     final_answer: str | None
     visited_agents: list[str]
