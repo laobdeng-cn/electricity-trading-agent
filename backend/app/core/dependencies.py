@@ -5,6 +5,10 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.agents.decision_agent import DecisionAgent
+from app.agents.explanation_agent import (
+    ExplanationAgent,
+    ResilientExplanationAgent,
+)
 from app.agents.market_analyst import MarketAnalystAgent
 from app.agents.risk_agent import RiskAgent
 from app.core.config import settings
@@ -13,6 +17,7 @@ from app.graph.deepseek_market_agent import DeepSeekMarketAgentGraphRunner
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
 from app.llm.deepseek import DeepSeekClient
 from app.llm.deepseek_agent import DeepSeekToolCallingClient
+from app.llm.deepseek_explanation import DeepSeekExplanationProvider
 from app.repositories.market import MarketDataRepository
 from app.services.agent import MarketAgentService
 from app.services.analysis import MarketAnalysisService
@@ -121,8 +126,19 @@ def get_multi_agent_runner(
         Depends(get_market_analysis_service),
     ],
 ) -> MultiAgentGraphRunner:
+    explanation_provider = DeepSeekExplanationProvider(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        model=settings.deepseek_model,
+        timeout_seconds=settings.deepseek_timeout_seconds,
+    )
+    explanation_agent = ResilientExplanationAgent(
+        ExplanationAgent(explanation_provider)
+    )
+
     return MultiAgentGraphRunner(
         market_analyst=MarketAnalystAgent(analysis_service),
         risk_agent=RiskAgent(),
         decision_agent=DecisionAgent(),
+        explanation_agent=explanation_agent,
     )
