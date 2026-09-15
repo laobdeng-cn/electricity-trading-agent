@@ -1,6 +1,8 @@
 from copy import deepcopy
 from typing import Any, Protocol
 
+from app.llm.deepseek import LLMClientError
+
 
 class ExplanationProvider(Protocol):
     def generate_explanation(
@@ -34,3 +36,35 @@ class ExplanationAgent:
             raise ValueError("Explanation provider returned empty content")
 
         return explanation.strip()
+
+
+class ResilientExplanationAgent:
+    """Keep deterministic decisions available when the LLM explanation fails."""
+
+    def __init__(self, agent: ExplanationAgent) -> None:
+        self.agent = agent
+
+    def __call__(
+        self,
+        market_analysis: dict[str, Any],
+        risk_analysis: dict[str, Any],
+        decision_analysis: dict[str, Any],
+    ) -> str:
+        try:
+            return self.agent(
+                market_analysis,
+                risk_analysis,
+                decision_analysis,
+            )
+        except LLMClientError:
+            summary = decision_analysis.get("summary")
+            if isinstance(summary, str) and summary.strip():
+                return (
+                    "AI解释暂不可用；以下为确定性决策摘要："
+                    f"{summary.strip()}"
+                )
+
+            return (
+                "AI解释暂不可用；请以结构化市场分析、风险评估和"
+                "确定性决策字段为准。"
+            )
