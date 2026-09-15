@@ -1,7 +1,11 @@
 from typing import Any
 
-from app.agents.explanation_agent import ExplanationAgent
+from app.agents.explanation_agent import (
+    ExplanationAgent,
+    ResilientExplanationAgent,
+)
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
+from app.llm.deepseek import LLMClientError
 
 
 class FakeExplanationProvider:
@@ -21,6 +25,16 @@ class FakeExplanationProvider:
         decision_analysis["action"] = "override_attempt"
 
         return "市场偏多、风险中等，系统确定性决策为谨慎买入。"
+
+
+class FailingExplanationProvider:
+    def generate_explanation(
+        self,
+        market_analysis: dict[str, Any],
+        risk_analysis: dict[str, Any],
+        decision_analysis: dict[str, Any],
+    ) -> str:
+        raise LLMClientError("temporary explanation failure")
 
 
 def test_explanation_agent_cannot_mutate_deterministic_inputs() -> None:
@@ -73,3 +87,21 @@ def test_multi_agent_graph_can_finish_with_explanation_agent() -> None:
         "decision",
         "explanation",
     ]
+
+
+def test_resilient_explanation_agent_falls_back_to_decision_summary() -> None:
+    agent = ResilientExplanationAgent(
+        ExplanationAgent(FailingExplanationProvider())
+    )
+
+    explanation = agent(
+        {"signal": "bullish"},
+        {"risk_level": "medium", "risk_score": 18},
+        {
+            "action": "cautious_buy",
+            "summary": "决策动作 cautious_buy；风险等级 medium。",
+        },
+    )
+
+    assert explanation.startswith("AI解释暂不可用")
+    assert "决策动作 cautious_buy" in explanation
