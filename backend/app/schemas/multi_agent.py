@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,5 +12,9 @@ class MultiAgentAnalyzeResponse(BaseModel):
     risk_analysis: dict[str, Any]
     decision: dict[str, Any]
     explanation: str | None = None
+    explanation_status: Literal["llm", "fallback"] | None = None
+    explanation_model: str | None = None
+    explanation_latency_ms: float | None = None
+    explanation_error: str | None = None
     visited_agents: list[str]
     final_answer: str | None
