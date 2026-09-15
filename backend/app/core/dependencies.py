@@ -4,9 +4,13 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.agents.decision_agent import DecisionAgent
+from app.agents.market_analyst import MarketAnalystAgent
+from app.agents.risk_agent import RiskAgent
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.graph.deepseek_market_agent import DeepSeekMarketAgentGraphRunner
+from app.graph.multi_agent_graph import MultiAgentGraphRunner
 from app.llm.deepseek import DeepSeekClient
 from app.llm.deepseek_agent import DeepSeekToolCallingClient
 from app.repositories.market import MarketDataRepository
@@ -108,4 +112,17 @@ def get_market_agent_service(
         analysis_service=analysis_service,
         comparison_service=comparison_service,
         agent_runner=agent_runner,
+    )
+
+
+def get_multi_agent_runner(
+    analysis_service: Annotated[
+        MarketAnalysisService,
+        Depends(get_market_analysis_service),
+    ],
+) -> MultiAgentGraphRunner:
+    return MultiAgentGraphRunner(
+        market_analyst=MarketAnalystAgent(analysis_service),
+        risk_agent=RiskAgent(),
+        decision_agent=DecisionAgent(),
     )
