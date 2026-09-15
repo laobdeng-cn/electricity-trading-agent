@@ -3,12 +3,13 @@ from fastapi import FastAPI
 from app.api.agent import router as agent_router
 from app.api.llm import router as llm_router
 from app.api.market import router as market_router
+from app.api.multi_agent import router as multi_agent_router
 
 
 app = FastAPI(
     title="Electricity Trading Agent",
     description="AI-powered electricity trading decision system",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 
@@ -24,6 +25,11 @@ app.include_router(
 
 app.include_router(
     agent_router,
+    prefix="/api",
+)
+
+app.include_router(
+    multi_agent_router,
     prefix="/api",
 )
 
