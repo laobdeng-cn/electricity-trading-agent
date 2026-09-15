@@ -11,5 +11,6 @@ class MultiAgentAnalyzeResponse(BaseModel):
     market_analysis: dict[str, Any]
     risk_analysis: dict[str, Any]
     decision: dict[str, Any]
+    explanation: str | None = None
     visited_agents: list[str]
     final_answer: str | None
