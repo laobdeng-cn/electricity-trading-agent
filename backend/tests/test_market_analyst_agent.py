@@ -1,5 +1,10 @@
+import pytest
+
 from app.agents.decision_agent import DecisionAgent
-from app.agents.market_analyst import MarketAnalystAgent
+from app.agents.market_analyst import (
+    MarketAnalystAgent,
+    MarketDataNotFoundError,
+)
 from app.agents.risk_agent import RiskAgent
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
 from app.schemas.analysis import MarketAnalysisResponse, MarketSignal
@@ -42,6 +47,19 @@ def test_market_analyst_agent_uses_analysis_service() -> None:
     assert result["market_data_id"] == 2
     assert result["node"] == "MAC_NODE_B"
     assert result["signal"] == "bullish"
+
+
+def test_market_analyst_agent_raises_when_record_is_missing() -> None:
+    analysis_service = FakeAnalysisService(None)
+    agent = MarketAnalystAgent(analysis_service)
+
+    with pytest.raises(
+        MarketDataNotFoundError,
+        match="Market data 999 not found",
+    ):
+        agent("分析市场数据 999")
+
+    assert analysis_service.requested_ids == [999]
 
 
 def test_multi_agent_graph_can_use_real_market_risk_and_decision_agents() -> None:
