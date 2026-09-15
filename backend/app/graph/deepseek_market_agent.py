@@ -32,18 +32,25 @@ class DeepSeekMarketAgentGraphRunner:
             max_steps=self.max_steps,
         )
 
-        state = graph_runner.run(
-            [
-                {
-                    "role": "system",
-                    "content": self.client.SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content": message,
-                },
-            ]
-        )
+        try:
+            state = graph_runner.run(
+                [
+                    {
+                        "role": "system",
+                        "content": self.client.SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": message,
+                    },
+                ]
+            )
+        except RuntimeError as exc:
+            if str(exc) == "LangGraph agent exceeded maximum steps":
+                raise LLMClientError(
+                    "LangGraph agent exceeded maximum steps"
+                ) from exc
+            raise
 
         answer = state["final_answer"]
         if not isinstance(answer, str) or not answer.strip():
