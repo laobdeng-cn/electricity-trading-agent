@@ -4,7 +4,10 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
-from app.graph.multi_agent_state import MultiAgentState
+from app.graph.multi_agent_state import (
+    AgentExecutionStatus,
+    MultiAgentState,
+)
 
 
 MarketAnalystStep = Callable[[str], dict[str, Any]]
@@ -66,6 +69,7 @@ class MultiAgentGraphRunner:
             "explanation_error": None,
             "workflow_latency_ms": None,
             "agent_latency_ms": {},
+            "agent_status": {},
             "final_answer": None,
             "visited_agents": [],
         }
@@ -88,18 +92,43 @@ class MultiAgentGraphRunner:
             agent_name: round((perf_counter() - started_at) * 1000, 3),
         }
 
+    @staticmethod
+    def _with_status(
+        state: MultiAgentState,
+        agent_name: str,
+        status: AgentExecutionStatus,
+    ) -> dict[str, AgentExecutionStatus]:
+        return {
+            **state["agent_status"],
+            agent_name: status,
+        }
+
     def _market_analyst_node(
         self,
         state: MultiAgentState,
     ) -> dict[str, Any]:
         started_at = perf_counter()
-        analysis = self.market_analyst(state["request"])
+        try:
+            analysis = self.market_analyst(state["request"])
+        except Exception:
+            state["agent_status"] = self._with_status(
+                state,
+                "market_analyst",
+                "failed",
+            )
+            raise
+
         return {
             "market_analysis": analysis,
             "agent_latency_ms": self._with_latency(
                 state,
                 "market_analyst",
                 started_at,
+            ),
+            "agent_status": self._with_status(
+                state,
+                "market_analyst",
+                "success",
             ),
             "visited_agents": [
                 *state["visited_agents"],
@@ -113,18 +142,37 @@ class MultiAgentGraphRunner:
     ) -> dict[str, Any]:
         market_analysis = state["market_analysis"]
         if market_analysis is None:
+            state["agent_status"] = self._with_status(
+                state,
+                "risk",
+                "failed",
+            )
             raise RuntimeError(
                 "Risk agent requires market analysis before execution"
             )
 
         started_at = perf_counter()
-        risk_analysis = self.risk_agent(market_analysis)
+        try:
+            risk_analysis = self.risk_agent(market_analysis)
+        except Exception:
+            state["agent_status"] = self._with_status(
+                state,
+                "risk",
+                "failed",
+            )
+            raise
+
         return {
             "risk_analysis": risk_analysis,
             "agent_latency_ms": self._with_latency(
                 state,
                 "risk",
                 started_at,
+            ),
+            "agent_status": self._with_status(
+                state,
+                "risk",
+                "success",
             ),
             "visited_agents": [
                 *state["visited_agents"],
@@ -139,15 +187,29 @@ class MultiAgentGraphRunner:
         market_analysis = state["market_analysis"]
         risk_analysis = state["risk_analysis"]
         if market_analysis is None or risk_analysis is None:
+            state["agent_status"] = self._with_status(
+                state,
+                "decision",
+                "failed",
+            )
             raise RuntimeError(
                 "Decision agent requires market and risk analyses"
             )
 
         started_at = perf_counter()
-        decision_analysis = self.decision_agent(
-            market_analysis,
-            risk_analysis,
-        )
+        try:
+            decision_analysis = self.decision_agent(
+                market_analysis,
+                risk_analysis,
+            )
+        except Exception:
+            state["agent_status"] = self._with_status(
+                state,
+                "decision",
+                "failed",
+            )
+            raise
+
         summary = decision_analysis.get("summary")
         final_answer = summary if isinstance(summary, str) else None
 
@@ -158,6 +220,11 @@ class MultiAgentGraphRunner:
                 state,
                 "decision",
                 started_at,
+            ),
+            "agent_status": self._with_status(
+                state,
+                "decision",
+                "success",
             ),
             "visited_agents": [
                 *state["visited_agents"],
@@ -177,39 +244,63 @@ class MultiAgentGraphRunner:
             or risk_analysis is None
             or decision_analysis is None
         ):
+            state["agent_status"] = self._with_status(
+                state,
+                "explanation",
+                "failed",
+            )
             raise RuntimeError(
                 "Explanation agent requires market, risk, and decision analyses"
             )
         if self.explanation_agent is None:
+            state["agent_status"] = self._with_status(
+                state,
+                "explanation",
+                "failed",
+            )
             raise RuntimeError("Explanation agent is not configured")
 
         started_at = perf_counter()
-        observer = getattr(
-            self.explanation_agent,
-            "generate_observation",
-            None,
+        try:
+            observer = getattr(
+                self.explanation_agent,
+                "generate_observation",
+                None,
+            )
+            if callable(observer):
+                observation = observer(
+                    market_analysis,
+                    risk_analysis,
+                    decision_analysis,
+                )
+                explanation = observation.explanation
+                explanation_status = observation.status
+                explanation_model = observation.model
+                explanation_latency_ms = observation.latency_ms
+                explanation_error = observation.error
+            else:
+                explanation = self.explanation_agent(
+                    market_analysis,
+                    risk_analysis,
+                    decision_analysis,
+                )
+                explanation_status = None
+                explanation_model = None
+                explanation_latency_ms = None
+                explanation_error = None
+        except Exception:
+            state["agent_status"] = self._with_status(
+                state,
+                "explanation",
+                "failed",
+            )
+            raise
+
+        node_status: AgentExecutionStatus = (
+            "fallback"
+            if explanation_status == "fallback"
+            else "success"
         )
-        if callable(observer):
-            observation = observer(
-                market_analysis,
-                risk_analysis,
-                decision_analysis,
-            )
-            explanation = observation.explanation
-            explanation_status = observation.status
-            explanation_model = observation.model
-            explanation_latency_ms = observation.latency_ms
-            explanation_error = observation.error
-        else:
-            explanation = self.explanation_agent(
-                market_analysis,
-                risk_analysis,
-                decision_analysis,
-            )
-            explanation_status = None
-            explanation_model = None
-            explanation_latency_ms = None
-            explanation_error = None
 
         return {
             "explanation": explanation,
@@ -221,6 +312,11 @@ class MultiAgentGraphRunner:
                 state,
                 "explanation",
                 started_at,
+            ),
+            "agent_status": self._with_status(
+                state,
+                "explanation",
+                node_status,
             ),
             "final_answer": explanation,
             "visited_agents": [
