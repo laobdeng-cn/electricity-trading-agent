@@ -1,4 +1,5 @@
 from app.agents.market_analyst import MarketAnalystAgent
+from app.agents.risk_agent import RiskAgent
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
 from app.schemas.analysis import MarketAnalysisResponse, MarketSignal
 
@@ -42,26 +43,20 @@ def test_market_analyst_agent_uses_analysis_service() -> None:
     assert result["signal"] == "bullish"
 
 
-def test_multi_agent_graph_can_use_real_market_analyst_adapter() -> None:
+def test_multi_agent_graph_can_use_real_market_and_risk_agents() -> None:
     analysis_service = FakeAnalysisService(build_analysis())
     market_analyst = MarketAnalystAgent(analysis_service)
-
-    def fake_risk_agent(market_analysis: dict) -> dict:
-        assert market_analysis["market_data_id"] == 2
-        assert market_analysis["signal"] == "bullish"
-        return {
-            "risk_level": "medium",
-            "summary": "价格存在上行信号，但需要关注负荷波动风险。",
-        }
+    risk_agent = RiskAgent()
 
     runner = MultiAgentGraphRunner(
         market_analyst=market_analyst,
-        risk_agent=fake_risk_agent,
+        risk_agent=risk_agent,
     )
 
     result = runner.run("分析市场数据 2")
 
     assert result["market_analysis"]["price_gap_percent"] == 1.88
     assert result["risk_analysis"]["risk_level"] == "medium"
+    assert result["risk_analysis"]["risk_score"] == 18
     assert result["visited_agents"] == ["market_analyst", "risk"]
-    assert result["final_answer"] == "价格存在上行信号，但需要关注负荷波动风险。"
+    assert "风险等级 medium" in result["final_answer"]
