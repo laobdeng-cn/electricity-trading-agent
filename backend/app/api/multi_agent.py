@@ -40,6 +40,7 @@ def analyze_with_multi_agent(
         market_analysis=state["market_analysis"] or {},
         risk_analysis=state["risk_analysis"] or {},
         decision=state["decision_analysis"] or {},
+        explanation=state.get("explanation"),
         visited_agents=state["visited_agents"],
         final_answer=state["final_answer"],
     )
