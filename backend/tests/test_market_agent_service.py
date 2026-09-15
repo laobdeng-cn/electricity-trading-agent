@@ -32,6 +32,11 @@ class FakeAnalysisService:
         return self.result
 
 
+class ExplodingAnalysisService:
+    def analyze_market_data(self, market_data_id: int):
+        raise RuntimeError("analysis backend failed")
+
+
 class FakeComparisonService:
     def __init__(
         self,
@@ -174,3 +179,32 @@ def test_analyze_market_tool_returns_not_found_result() -> None:
 def test_agent_rejects_unknown_tool() -> None:
     with pytest.raises(LLMClientError):
         build_service().execute_tool("unknown_tool", {})
+
+
+def test_agent_rejects_invalid_tool_arguments() -> None:
+    with pytest.raises(
+        LLMClientError,
+        match="Invalid analyze_market tool arguments",
+    ):
+        build_service().execute_tool(
+            "analyze_market",
+            {"market_data_id": 0},
+        )
+
+
+def test_agent_wraps_unexpected_tool_error() -> None:
+    service = MarketAgentService(
+        market_service=FakeMarketService(build_market_data()),
+        analysis_service=ExplodingAnalysisService(),
+        comparison_service=FakeComparisonService(build_comparison()),
+        agent_runner=FakeAgentRunner(),
+    )
+
+    with pytest.raises(
+        LLMClientError,
+        match="Tool execution failed: analyze_market",
+    ):
+        service.execute_tool(
+            "analyze_market",
+            {"market_data_id": 2},
+        )
