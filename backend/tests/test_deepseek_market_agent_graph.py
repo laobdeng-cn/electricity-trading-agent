@@ -1,6 +1,9 @@
 from typing import Any
 
+import pytest
+
 from app.graph.deepseek_market_agent import DeepSeekMarketAgentGraphRunner
+from app.llm.deepseek import LLMClientError
 from app.llm.deepseek_agent import DeepSeekToolCallingClient
 
 
@@ -105,3 +108,45 @@ def test_deepseek_langgraph_can_answer_without_tool() -> None:
     assert response.steps == 1
     assert response.visited_nodes == ["agent"]
     assert len(client.seen_messages) == 1
+
+
+def test_deepseek_langgraph_translates_max_step_error() -> None:
+    repeated_tool_call = {
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call-loop",
+                "type": "function",
+                "function": {
+                    "name": "analyze_market",
+                    "arguments": '{"market_data_id": 2}',
+                },
+            }
+        ],
+    }
+    client = FakeDeepSeekClient(
+        [repeated_tool_call, repeated_tool_call]
+    )
+
+    def tool_executor(
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "market_data_id": arguments["market_data_id"],
+            "signal": "bullish",
+        }
+
+    runner = DeepSeekMarketAgentGraphRunner(
+        client=client,
+        max_steps=2,
+    )
+
+    with pytest.raises(
+        LLMClientError,
+        match="LangGraph agent exceeded maximum steps",
+    ):
+        runner.run(
+            "持续分析市场数据 2",
+            tool_executor=tool_executor,
+        )
