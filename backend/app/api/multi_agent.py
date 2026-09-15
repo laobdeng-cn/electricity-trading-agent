@@ -45,6 +45,8 @@ def analyze_with_multi_agent(
         explanation_model=state.get("explanation_model"),
         explanation_latency_ms=state.get("explanation_latency_ms"),
         explanation_error=state.get("explanation_error"),
+        workflow_latency_ms=state.get("workflow_latency_ms"),
+        agent_latency_ms=state.get("agent_latency_ms", {}),
         visited_agents=state["visited_agents"],
         final_answer=state["final_answer"],
     )
