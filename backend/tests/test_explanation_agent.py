@@ -9,6 +9,8 @@ from app.llm.deepseek import LLMClientError
 
 
 class FakeExplanationProvider:
+    model = "fake-explanation-model"
+
     def generate_explanation(
         self,
         market_analysis: dict[str, Any],
@@ -28,6 +30,8 @@ class FakeExplanationProvider:
 
 
 class FailingExplanationProvider:
+    model = "fake-explanation-model"
+
     def generate_explanation(
         self,
         market_analysis: dict[str, Any],
@@ -52,6 +56,21 @@ def test_explanation_agent_cannot_mutate_deterministic_inputs() -> None:
     assert explanation == "市场偏多、风险中等，系统确定性决策为谨慎买入。"
     assert risk_analysis["risk_score"] == 18
     assert decision_analysis["action"] == "cautious_buy"
+
+
+def test_explanation_observability_marks_llm_success() -> None:
+    agent = ExplanationAgent(FakeExplanationProvider())
+
+    observation = agent.generate_observation(
+        {"signal": "bullish"},
+        {"risk_level": "medium", "risk_score": 18},
+        {"action": "cautious_buy"},
+    )
+
+    assert observation.status == "llm"
+    assert observation.model == "fake-explanation-model"
+    assert observation.latency_ms >= 0
+    assert observation.error is None
 
 
 def test_multi_agent_graph_can_finish_with_explanation_agent() -> None:
@@ -80,6 +99,10 @@ def test_multi_agent_graph_can_finish_with_explanation_agent() -> None:
     assert result["explanation"] == (
         "市场偏多、风险中等，系统确定性决策为谨慎买入。"
     )
+    assert result["explanation_status"] == "llm"
+    assert result["explanation_model"] == "fake-explanation-model"
+    assert result["explanation_latency_ms"] is not None
+    assert result["explanation_error"] is None
     assert result["final_answer"] == result["explanation"]
     assert result["visited_agents"] == [
         "market_analyst",
@@ -105,3 +128,24 @@ def test_resilient_explanation_agent_falls_back_to_decision_summary() -> None:
 
     assert explanation.startswith("AI解释暂不可用")
     assert "决策动作 cautious_buy" in explanation
+
+
+def test_resilient_explanation_observability_marks_fallback() -> None:
+    agent = ResilientExplanationAgent(
+        ExplanationAgent(FailingExplanationProvider())
+    )
+
+    observation = agent.generate_observation(
+        {"signal": "bullish"},
+        {"risk_level": "medium", "risk_score": 18},
+        {
+            "action": "cautious_buy",
+            "summary": "决策动作 cautious_buy；风险等级 medium。",
+        },
+    )
+
+    assert observation.status == "fallback"
+    assert observation.model == "fake-explanation-model"
+    assert observation.latency_ms >= 0
+    assert observation.error == "temporary explanation failure"
+    assert observation.explanation.startswith("AI解释暂不可用")
