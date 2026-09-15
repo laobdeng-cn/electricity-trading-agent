@@ -13,5 +13,7 @@ class MultiAgentState(TypedDict):
     explanation_model: str | None
     explanation_latency_ms: float | None
     explanation_error: str | None
+    workflow_latency_ms: float | None
+    agent_latency_ms: dict[str, float]
     final_answer: str | None
     visited_agents: list[str]
