@@ -28,11 +28,17 @@ class FakeMultiAgentRunner:
                 "risk_score": 18,
                 "summary": "决策动作 cautious_buy。",
             },
-            "final_answer": "决策动作 cautious_buy。",
+            "explanation": "市场偏多、风险中等，建议谨慎执行确定性决策。",
+            "explanation_status": "llm",
+            "explanation_model": "fake-explanation-model",
+            "explanation_latency_ms": 12.5,
+            "explanation_error": None,
+            "final_answer": "市场偏多、风险中等，建议谨慎执行确定性决策。",
             "visited_agents": [
                 "market_analyst",
                 "risk",
                 "decision",
+                "explanation",
             ],
         }
 
@@ -61,12 +67,19 @@ def test_multi_agent_api_returns_structured_workflow_result() -> None:
     assert body["market_analysis"]["signal"] == "bullish"
     assert body["risk_analysis"]["risk_score"] == 18
     assert body["decision"]["action"] == "cautious_buy"
+    assert body["explanation_status"] == "llm"
+    assert body["explanation_model"] == "fake-explanation-model"
+    assert body["explanation_latency_ms"] == 12.5
+    assert body["explanation_error"] is None
     assert body["visited_agents"] == [
         "market_analyst",
         "risk",
         "decision",
+        "explanation",
     ]
-    assert body["final_answer"] == "决策动作 cautious_buy。"
+    assert body["final_answer"] == (
+        "市场偏多、风险中等，建议谨慎执行确定性决策。"
+    )
 
 
 def test_multi_agent_api_returns_404_when_market_data_is_missing() -> None:
