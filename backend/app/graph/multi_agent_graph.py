@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from time import perf_counter
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
@@ -63,18 +64,45 @@ class MultiAgentGraphRunner:
             "explanation_model": None,
             "explanation_latency_ms": None,
             "explanation_error": None,
+            "workflow_latency_ms": None,
+            "agent_latency_ms": {},
             "final_answer": None,
             "visited_agents": [],
         }
-        return self.graph.invoke(initial_state)
+        started_at = perf_counter()
+        result = self.graph.invoke(initial_state)
+        result["workflow_latency_ms"] = round(
+            (perf_counter() - started_at) * 1000,
+            3,
+        )
+        return result
+
+    @staticmethod
+    def _with_latency(
+        state: MultiAgentState,
+        agent_name: str,
+        started_at: float,
+    ) -> dict[str, float]:
+        return {
+            *(),
+        } if False else {
+            **state["agent_latency_ms"],
+            agent_name: round((perf_counter() - started_at) * 1000, 3),
+        }
 
     def _market_analyst_node(
         self,
         state: MultiAgentState,
     ) -> dict[str, Any]:
+        started_at = perf_counter()
         analysis = self.market_analyst(state["request"])
         return {
             "market_analysis": analysis,
+            "agent_latency_ms": self._with_latency(
+                state,
+                "market_analyst",
+                started_at,
+            ),
             "visited_agents": [
                 *state["visited_agents"],
                 "market_analyst",
@@ -91,9 +119,15 @@ class MultiAgentGraphRunner:
                 "Risk agent requires market analysis before execution"
             )
 
+        started_at = perf_counter()
         risk_analysis = self.risk_agent(market_analysis)
         return {
             "risk_analysis": risk_analysis,
+            "agent_latency_ms": self._with_latency(
+                state,
+                "risk",
+                started_at,
+            ),
             "visited_agents": [
                 *state["visited_agents"],
                 "risk",
@@ -111,6 +145,7 @@ class MultiAgentGraphRunner:
                 "Decision agent requires market and risk analyses"
             )
 
+        started_at = perf_counter()
         decision_analysis = self.decision_agent(
             market_analysis,
             risk_analysis,
@@ -121,6 +156,11 @@ class MultiAgentGraphRunner:
         return {
             "decision_analysis": decision_analysis,
             "final_answer": final_answer,
+            "agent_latency_ms": self._with_latency(
+                state,
+                "decision",
+                started_at,
+            ),
             "visited_agents": [
                 *state["visited_agents"],
                 "decision",
@@ -145,6 +185,7 @@ class MultiAgentGraphRunner:
         if self.explanation_agent is None:
             raise RuntimeError("Explanation agent is not configured")
 
+        started_at = perf_counter()
         observer = getattr(
             self.explanation_agent,
             "generate_observation",
@@ -178,6 +219,11 @@ class MultiAgentGraphRunner:
             "explanation_model": explanation_model,
             "explanation_latency_ms": explanation_latency_ms,
             "explanation_error": explanation_error,
+            "agent_latency_ms": self._with_latency(
+                state,
+                "explanation",
+                started_at,
+            ),
             "final_answer": explanation,
             "visited_agents": [
                 *state["visited_agents"],
