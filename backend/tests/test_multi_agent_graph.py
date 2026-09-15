@@ -61,6 +61,37 @@ def test_multi_agent_graph_runs_market_risk_then_decision() -> None:
     ]
 
 
+def test_multi_agent_graph_records_success_path_timings() -> None:
+    runner = MultiAgentGraphRunner(
+        market_analyst=lambda request: {
+            "market_data_id": 2,
+            "signal": "bullish",
+        },
+        risk_agent=lambda analysis: {
+            "risk_level": "medium",
+            "risk_score": 18,
+        },
+        decision_agent=lambda market, risk: {
+            "action": "cautious_buy",
+            "summary": "决策动作 cautious_buy。",
+        },
+    )
+
+    state = runner.run("分析市场数据 2")
+
+    assert state["workflow_latency_ms"] is not None
+    assert state["workflow_latency_ms"] >= 0
+    assert set(state["agent_latency_ms"]) == {
+        "market_analyst",
+        "risk",
+        "decision",
+    }
+    assert all(
+        latency >= 0
+        for latency in state["agent_latency_ms"].values()
+    )
+
+
 def test_multi_agent_graph_requires_market_analysis_before_risk() -> None:
     runner = MultiAgentGraphRunner(
         market_analyst=lambda request: None,  # type: ignore[arg-type, return-value]
