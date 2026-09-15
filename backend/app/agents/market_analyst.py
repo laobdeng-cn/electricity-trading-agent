@@ -4,6 +4,10 @@ from typing import Protocol
 from app.schemas.analysis import MarketAnalysisResponse
 
 
+class MarketDataNotFoundError(RuntimeError):
+    """Raised when a requested market data record does not exist."""
+
+
 class MarketAnalysisProvider(Protocol):
     def analyze_market_data(
         self,
@@ -23,10 +27,9 @@ class MarketAnalystAgent:
         analysis = self.analysis_service.analyze_market_data(market_data_id)
 
         if analysis is None:
-            return {
-                "error": "market_data_not_found",
-                "market_data_id": market_data_id,
-            }
+            raise MarketDataNotFoundError(
+                f"Market data {market_data_id} not found"
+            )
 
         return analysis.model_dump(mode="json")
 
