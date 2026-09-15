@@ -16,5 +16,7 @@ class MultiAgentAnalyzeResponse(BaseModel):
     explanation_model: str | None = None
     explanation_latency_ms: float | None = None
     explanation_error: str | None = None
+    workflow_latency_ms: float | None = None
+    agent_latency_ms: dict[str, float] = Field(default_factory=dict)
     visited_agents: list[str]
     final_answer: str | None
