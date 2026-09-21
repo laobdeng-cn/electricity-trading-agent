@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -189,9 +190,16 @@ def test_multi_agent_graph_generates_unique_workflow_ids() -> None:
 
     first_workflow_id = first_state["workflow_id"]
     second_workflow_id = second_state["workflow_id"]
+    first_started_at = first_state["workflow_started_at"]
+    second_started_at = second_state["workflow_started_at"]
 
     assert first_workflow_id
     assert second_workflow_id
     assert str(UUID(first_workflow_id)) == first_workflow_id
     assert str(UUID(second_workflow_id)) == second_workflow_id
     assert first_workflow_id != second_workflow_id
+
+    first_started = datetime.fromisoformat(first_started_at.replace("Z", "+00:00"))
+    second_started = datetime.fromisoformat(second_started_at.replace("Z", "+00:00"))
+    assert first_started.tzinfo == timezone.utc
+    assert second_started.tzinfo == timezone.utc
