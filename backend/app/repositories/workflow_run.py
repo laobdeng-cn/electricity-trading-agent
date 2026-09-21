@@ -81,3 +81,29 @@ class WorkflowRunRepository:
             WorkflowRun.workflow_id == workflow_id
         )
         return self.db.scalar(statement)
+
+    def list_recent(
+        self,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+    ) -> list[WorkflowRun]:
+        statement = select(WorkflowRun)
+
+        if status is not None:
+            statement = statement.where(
+                WorkflowRun.status == status
+            )
+
+        statement = (
+            statement
+            .order_by(
+                WorkflowRun.created_at.desc(),
+                WorkflowRun.id.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return list(self.db.scalars(statement).all())
