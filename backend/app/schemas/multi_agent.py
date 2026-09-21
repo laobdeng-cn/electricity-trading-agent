@@ -12,6 +12,7 @@ class MultiAgentAnalyzeRequest(BaseModel):
 
 class MultiAgentAnalyzeResponse(BaseModel):
     workflow_id: str
+    workflow_started_at: str
     market_analysis: dict[str, Any]
     risk_analysis: dict[str, Any]
     decision: dict[str, Any]
