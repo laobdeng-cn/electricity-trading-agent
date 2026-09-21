@@ -266,3 +266,84 @@ def test_workflow_run_api_rejects_invalid_status() -> None:
 
     assert response.status_code == 422
     assert db.scalars_calls == 0
+
+
+def test_workflow_run_api_filters_by_market_data_id() -> None:
+    runs = [
+        _build_workflow_run(
+            row_id=1,
+            workflow_id="success-run",
+            market_data_id=2,
+            status_value="success",
+        ),
+    ]
+    db = FakeWorkflowRunDB(workflow_runs=runs)
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/workflow-runs?market_data_id=2"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()[0]["market_data_id"] == 2
+    assert db.scalars_calls == 1
+
+    statement = str(db.last_scalars_statement)
+    assert "workflow_runs.market_data_id =" in statement
+
+
+def test_workflow_run_api_filters_by_started_time_range() -> None:
+    runs = [
+        _build_workflow_run(
+            row_id=1,
+            workflow_id="success-run",
+            market_data_id=2,
+            status_value="success",
+        ),
+    ]
+    db = FakeWorkflowRunDB(workflow_runs=runs)
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/workflow-runs"
+                "?started_from=2026-09-21T15:00:00Z"
+                "&started_to=2026-09-21T16:00:00Z"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert db.scalars_calls == 1
+
+    statement = str(db.last_scalars_statement)
+    assert "workflow_runs.started_at >=" in statement
+    assert "workflow_runs.started_at <=" in statement
+
+
+def test_workflow_run_api_rejects_invalid_started_time_range() -> None:
+    db = FakeWorkflowRunDB()
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/workflow-runs"
+                "?started_from=2026-09-21T17:00:00Z"
+                "&started_to=2026-09-21T16:00:00Z"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": (
+            "started_from must be less than or equal to started_to"
+        ),
+    }
+    assert db.scalars_calls == 0
