@@ -12,6 +12,7 @@ class FakeMultiAgentRunner:
             "request": request,
             "workflow_id": "test-workflow-id",
             "workflow_started_at": "2026-09-21T14:45:31.238Z",
+            "workflow_completed_at": "2026-09-21T14:45:35.512Z",
             "market_analysis": {
                 "market_data_id": 2,
                 "signal": "bullish",
@@ -68,6 +69,7 @@ def test_multi_agent_api_returns_structured_workflow_result() -> None:
     body = response.json()
     assert body["workflow_id"] == "test-workflow-id"
     assert body["workflow_started_at"] == "2026-09-21T14:45:31.238Z"
+    assert body["workflow_completed_at"] == "2026-09-21T14:45:35.512Z"
     assert body["market_analysis"]["signal"] == "bullish"
     assert body["risk_analysis"]["risk_score"] == 18
     assert body["decision"]["action"] == "cautious_buy"
