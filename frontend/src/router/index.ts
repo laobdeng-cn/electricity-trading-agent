@@ -3,6 +3,7 @@ import {
   createWebHistory,
 } from "vue-router";
 
+import DashboardView from "../views/DashboardView.vue";
 import WorkflowAuditView from "../views/WorkflowAuditView.vue";
 
 const router = createRouter({
@@ -10,7 +11,8 @@ const router = createRouter({
   routes: [
     {
       path: "/",
-      redirect: "/workflow-audit",
+      name: "dashboard",
+      component: DashboardView,
     },
     {
       path: "/workflow-audit",
