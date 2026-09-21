@@ -5,7 +5,10 @@ from uuid import UUID
 import pytest
 
 from app.agents.explanation_agent import ExplanationObservation
-from app.graph.multi_agent_graph import MultiAgentGraphRunner
+from app.graph.multi_agent_graph import (
+    MultiAgentGraphRunner,
+    WorkflowExecutionError,
+)
 
 
 def test_multi_agent_graph_runs_market_risk_then_decision() -> None:
@@ -163,10 +166,17 @@ def test_multi_agent_graph_requires_market_analysis_before_risk() -> None:
     )
 
     with pytest.raises(
-        RuntimeError,
+        WorkflowExecutionError,
         match="Risk agent requires market analysis",
-    ):
+    ) as exc_info:
         runner.run("分析市场数据 2")
+
+    error = exc_info.value
+    assert error.workflow_id
+    assert error.failed_agent == "risk"
+    assert error.workflow_latency_ms >= 0
+    assert error.workflow_completed_at >= error.workflow_started_at
+    assert isinstance(error.original_exception, RuntimeError)
 
 
 def test_multi_agent_graph_generates_unique_workflow_ids() -> None:
