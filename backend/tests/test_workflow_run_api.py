@@ -7,6 +7,17 @@ from app.main import app
 from app.models.workflow_run import WorkflowRun
 
 
+class FakeExecuteResult:
+    def __init__(
+        self,
+        row: tuple[int, int, int, float | None],
+    ) -> None:
+        self.row = row
+
+    def one(self) -> tuple[int, int, int, float | None]:
+        return self.row
+
+
 class FakeScalarResult:
     def __init__(
         self,
@@ -24,6 +35,7 @@ class FakeWorkflowRunDB:
         workflow_run: WorkflowRun | None = None,
         workflow_runs: list[WorkflowRun] | None = None,
         total: int | None = None,
+        stats: tuple[int, int, int, float | None] | None = None,
     ) -> None:
         self.workflow_run = workflow_run
         self.workflow_runs = workflow_runs or []
@@ -36,6 +48,9 @@ class FakeWorkflowRunDB:
         self.scalars_calls = 0
         self.last_scalars_statement = None
         self.last_count_statement = None
+        self.stats = stats or (0, 0, 0, None)
+        self.execute_calls = 0
+        self.last_execute_statement = None
 
     def scalar(self, statement):
         self.scalar_calls += 1
@@ -48,6 +63,11 @@ class FakeWorkflowRunDB:
         self.scalars_calls += 1
         self.last_scalars_statement = statement
         return FakeScalarResult(self.workflow_runs)
+
+    def execute(self, statement):
+        self.execute_calls += 1
+        self.last_execute_statement = statement
+        return FakeExecuteResult(self.stats)
 
 
 def test_workflow_run_api_returns_audit_record() -> None:
@@ -385,3 +405,85 @@ def test_workflow_run_api_rejects_invalid_started_time_range() -> None:
         ),
     }
     assert db.scalars_calls == 0
+
+
+
+def test_workflow_run_stats_api_returns_aggregates() -> None:
+    db = FakeWorkflowRunDB(
+        stats=(2, 1, 1, 1334.385),
+    )
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/workflow-runs/stats")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "total": 2,
+        "success": 1,
+        "failed": 1,
+        "average_latency_ms": 1334.385,
+    }
+    assert db.execute_calls == 1
+
+
+def test_workflow_run_stats_api_applies_filters() -> None:
+    db = FakeWorkflowRunDB(
+        stats=(1, 0, 1, 57.534),
+    )
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/workflow-runs/stats"
+                "?status=failed"
+                "&market_data_id=999"
+                "&started_from=2026-09-21T15:00:00Z"
+                "&started_to=2026-09-21T16:00:00Z"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "total": 1,
+        "success": 0,
+        "failed": 1,
+        "average_latency_ms": 57.534,
+    }
+
+    statement = str(db.last_execute_statement)
+    assert "workflow_runs.status =" in statement
+    assert "workflow_runs.market_data_id =" in statement
+    assert "workflow_runs.started_at >=" in statement
+    assert "workflow_runs.started_at <=" in statement
+    assert "LIMIT" not in statement
+    assert "OFFSET" not in statement
+
+
+def test_workflow_run_stats_api_handles_empty_result() -> None:
+    db = FakeWorkflowRunDB(
+        stats=(0, 0, 0, None),
+    )
+    app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/workflow-runs/stats?market_data_id=123456"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "total": 0,
+        "success": 0,
+        "failed": 0,
+        "average_latency_ms": None,
+    }
+    assert db.execute_calls == 1
