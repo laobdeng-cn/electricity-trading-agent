@@ -283,9 +283,7 @@ onMounted(() => {
         v-if="analyzing"
         class="analysis-progress"
       >
-        <el-icon class="is-loading">
-          <Loading />
-        </el-icon>
+        <span class="progress-dot">●</span>
         <span>
           正在执行 market analyst → risk → decision → explanation…
         </span>
@@ -609,6 +607,22 @@ onMounted(() => {
   margin-top: 16px;
   color: #6b7280;
   font-size: 13px;
+}
+
+.progress-dot {
+  color: #409eff;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .analysis-result {
