@@ -3,6 +3,7 @@ import axios from "axios";
 import type {
   WorkflowRun,
   WorkflowRunPage,
+  WorkflowRunStats,
   WorkflowRunStatus,
 } from "../types/workflowRun";
 
@@ -11,13 +12,17 @@ const http = axios.create({
   timeout: 10000,
 });
 
-export interface WorkflowRunQuery {
-  limit: number;
-  offset: number;
+export interface WorkflowRunFilterQuery {
   status?: WorkflowRunStatus;
   market_data_id?: number;
   started_from?: string;
   started_to?: string;
+}
+
+export interface WorkflowRunQuery
+  extends WorkflowRunFilterQuery {
+  limit: number;
+  offset: number;
 }
 
 export async function fetchWorkflowRuns(
@@ -35,6 +40,17 @@ export async function fetchWorkflowRun(
 ): Promise<WorkflowRun> {
   const response = await http.get<WorkflowRun>(
     `/workflow-runs/${workflowId}`,
+  );
+  return response.data;
+}
+
+
+export async function fetchWorkflowRunStats(
+  params: WorkflowRunFilterQuery,
+): Promise<WorkflowRunStats> {
+  const response = await http.get<WorkflowRunStats>(
+    "/workflow-runs/stats",
+    { params },
   );
   return response.data;
 }
