@@ -20,3 +20,11 @@ export interface WorkflowRunPage {
   limit: number;
   offset: number;
 }
+
+
+export interface WorkflowRunStats {
+  total: number;
+  success: number;
+  failed: number;
+  average_latency_ms: number | null;
+}
