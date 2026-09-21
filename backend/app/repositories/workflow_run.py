@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -160,3 +160,57 @@ class WorkflowRunRepository:
         )
         total = self.db.scalar(statement)
         return int(total or 0)
+
+
+    def get_stats(
+        self,
+        *,
+        status: str | None = None,
+        market_data_id: int | None = None,
+        started_from: datetime | None = None,
+        started_to: datetime | None = None,
+    ) -> tuple[int, int, int, float | None]:
+        statement = self._apply_filters(
+            select(
+                func.count(WorkflowRun.id),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (WorkflowRun.status == "success", 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (WorkflowRun.status == "failed", 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ),
+                func.avg(WorkflowRun.workflow_latency_ms),
+            ).select_from(WorkflowRun),
+            status=status,
+            market_data_id=market_data_id,
+            started_from=started_from,
+            started_to=started_to,
+        )
+
+        row = self.db.execute(statement).one()
+        average_latency_ms = (
+            float(row[3])
+            if row[3] is not None
+            else None
+        )
+
+        return (
+            int(row[0] or 0),
+            int(row[1] or 0),
+            int(row[2] or 0),
+            average_latency_ms,
+        )
+
+
