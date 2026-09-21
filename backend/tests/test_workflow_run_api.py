@@ -23,15 +23,25 @@ class FakeWorkflowRunDB:
         self,
         workflow_run: WorkflowRun | None = None,
         workflow_runs: list[WorkflowRun] | None = None,
+        total: int | None = None,
     ) -> None:
         self.workflow_run = workflow_run
         self.workflow_runs = workflow_runs or []
+        self.total = (
+            len(self.workflow_runs)
+            if total is None
+            else total
+        )
         self.scalar_calls = 0
         self.scalars_calls = 0
         self.last_scalars_statement = None
+        self.last_count_statement = None
 
     def scalar(self, statement):
         self.scalar_calls += 1
+        if "count(" in str(statement).lower():
+            self.last_count_statement = statement
+            return self.total
         return self.workflow_run
 
     def scalars(self, statement):
@@ -200,7 +210,10 @@ def test_workflow_run_api_lists_recent_records() -> None:
             status_value="success",
         ),
     ]
-    db = FakeWorkflowRunDB(workflow_runs=runs)
+    db = FakeWorkflowRunDB(
+        workflow_runs=runs,
+        total=7,
+    )
     app.dependency_overrides[get_db] = lambda: db
 
     try:
@@ -211,11 +224,15 @@ def test_workflow_run_api_lists_recent_records() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert [item["workflow_id"] for item in body] == [
+    assert [item["workflow_id"] for item in body["items"]] == [
         "failed-run",
         "success-run",
     ]
+    assert body["total"] == 2
+    assert body["limit"] == 20
+    assert body["offset"] == 0
     assert db.scalars_calls == 1
+    assert db.scalar_calls == 1
 
     statement = str(db.last_scalars_statement)
     assert "ORDER BY workflow_runs.created_at DESC" in statement
@@ -245,11 +262,21 @@ def test_workflow_run_api_filters_by_status() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()[0]["status"] == "failed"
+    body = response.json()
+    assert body["items"][0]["status"] == "failed"
+    assert body["total"] == 7
+    assert body["limit"] == 10
+    assert body["offset"] == 0
     assert db.scalars_calls == 1
+    assert db.scalar_calls == 1
 
     statement = str(db.last_scalars_statement)
     assert "workflow_runs.status =" in statement
+
+    count_statement = str(db.last_count_statement)
+    assert "workflow_runs.status =" in count_statement
+    assert "LIMIT" not in count_statement
+    assert "OFFSET" not in count_statement
 
 
 def test_workflow_run_api_rejects_invalid_status() -> None:
@@ -289,8 +316,11 @@ def test_workflow_run_api_filters_by_market_data_id() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()[0]["market_data_id"] == 2
+    body = response.json()
+    assert body["items"][0]["market_data_id"] == 2
+    assert body["total"] == 1
     assert db.scalars_calls == 1
+    assert db.scalar_calls == 1
 
     statement = str(db.last_scalars_statement)
     assert "workflow_runs.market_data_id =" in statement
@@ -319,7 +349,12 @@ def test_workflow_run_api_filters_by_started_time_range() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["limit"] == 20
+    assert body["offset"] == 0
     assert db.scalars_calls == 1
+    assert db.scalar_calls == 1
 
     statement = str(db.last_scalars_statement)
     assert "workflow_runs.started_at >=" in statement
