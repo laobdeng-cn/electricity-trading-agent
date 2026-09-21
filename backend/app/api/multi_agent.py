@@ -38,6 +38,7 @@ def analyze_with_multi_agent(
 
     return MultiAgentAnalyzeResponse(
         workflow_id=state["workflow_id"],
+        workflow_started_at=state["workflow_started_at"],
         market_analysis=state["market_analysis"] or {},
         risk_analysis=state["risk_analysis"] or {},
         decision=state["decision_analysis"] or {},
