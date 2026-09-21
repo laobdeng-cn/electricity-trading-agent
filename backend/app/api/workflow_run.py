@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db
@@ -13,6 +13,36 @@ router = APIRouter(
     prefix="/workflow-runs",
     tags=["Workflow Audit"],
 )
+
+
+@router.get(
+    "",
+    response_model=list[WorkflowRunResponse],
+)
+def list_workflow_runs(
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+    limit: Annotated[
+        int,
+        Query(ge=1, le=100),
+    ] = 20,
+    offset: Annotated[
+        int,
+        Query(ge=0),
+    ] = 0,
+    status_filter: Annotated[
+        Literal["success", "failed"] | None,
+        Query(alias="status"),
+    ] = None,
+) -> list[WorkflowRun]:
+    repository = WorkflowRunRepository(db=db)
+    return repository.list_recent(
+        limit=limit,
+        offset=offset,
+        status=status_filter,
+    )
 
 
 @router.get(
