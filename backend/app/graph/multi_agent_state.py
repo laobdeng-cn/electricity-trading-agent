@@ -9,6 +9,7 @@ class MultiAgentState(TypedDict):
 
     request: str
     workflow_id: str
+    workflow_started_at: str
     market_analysis: dict[str, Any] | None
     risk_analysis: dict[str, Any] | None
     decision_analysis: dict[str, Any] | None
