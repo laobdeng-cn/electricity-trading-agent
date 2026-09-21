@@ -3,6 +3,7 @@ import axios from "axios";
 import type {
   WorkflowRun,
   WorkflowRunPage,
+  WorkflowRunStatus,
 } from "../types/workflowRun";
 
 const http = axios.create({
@@ -10,10 +11,18 @@ const http = axios.create({
   timeout: 10000,
 });
 
-export async function fetchWorkflowRuns(params: {
+export interface WorkflowRunQuery {
   limit: number;
   offset: number;
-}): Promise<WorkflowRunPage> {
+  status?: WorkflowRunStatus;
+  market_data_id?: number;
+  started_from?: string;
+  started_to?: string;
+}
+
+export async function fetchWorkflowRuns(
+  params: WorkflowRunQuery,
+): Promise<WorkflowRunPage> {
   const response = await http.get<WorkflowRunPage>(
     "/workflow-runs",
     { params },
