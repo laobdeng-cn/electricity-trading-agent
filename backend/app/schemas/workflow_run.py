@@ -17,3 +17,10 @@ class WorkflowRunResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowRunPageResponse(BaseModel):
+    items: list[WorkflowRunResponse]
+    total: int
+    limit: int
+    offset: int
