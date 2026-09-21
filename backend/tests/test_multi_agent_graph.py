@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -165,3 +166,32 @@ def test_multi_agent_graph_requires_market_analysis_before_risk() -> None:
         match="Risk agent requires market analysis",
     ):
         runner.run("分析市场数据 2")
+
+
+def test_multi_agent_graph_generates_unique_workflow_ids() -> None:
+    runner = MultiAgentGraphRunner(
+        market_analyst=lambda request: {
+            "market_data_id": 2,
+            "signal": "bullish",
+        },
+        risk_agent=lambda analysis: {
+            "risk_level": "medium",
+            "risk_score": 18,
+        },
+        decision_agent=lambda market, risk: {
+            "action": "cautious_buy",
+            "summary": "决策动作 cautious_buy。",
+        },
+    )
+
+    first_state = runner.run("分析市场数据 2")
+    second_state = runner.run("分析市场数据 2")
+
+    first_workflow_id = first_state["workflow_id"]
+    second_workflow_id = second_state["workflow_id"]
+
+    assert first_workflow_id
+    assert second_workflow_id
+    assert str(UUID(first_workflow_id)) == first_workflow_id
+    assert str(UUID(second_workflow_id)) == second_workflow_id
+    assert first_workflow_id != second_workflow_id
