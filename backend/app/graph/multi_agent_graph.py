@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any
+from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 
@@ -59,6 +60,7 @@ class MultiAgentGraphRunner:
     def run(self, request: str) -> MultiAgentState:
         initial_state: MultiAgentState = {
             "request": request,
+            "workflow_id": str(uuid4()),
             "market_analysis": None,
             "risk_analysis": None,
             "decision_analysis": None,
