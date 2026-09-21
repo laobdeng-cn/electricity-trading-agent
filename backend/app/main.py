@@ -4,6 +4,7 @@ from app.api.agent import router as agent_router
 from app.api.llm import router as llm_router
 from app.api.market import router as market_router
 from app.api.multi_agent import router as multi_agent_router
+from app.api.workflow_run import router as workflow_run_router
 
 
 app = FastAPI(
@@ -30,6 +31,11 @@ app.include_router(
 
 app.include_router(
     multi_agent_router,
+    prefix="/api",
+)
+
+app.include_router(
+    workflow_run_router,
     prefix="/api",
 )
 
