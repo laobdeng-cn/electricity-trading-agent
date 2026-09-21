@@ -1,10 +1,13 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.agents.market_analyst import MarketDataNotFoundError
-from app.core.dependencies import get_multi_agent_runner
+from app.core.dependencies import get_db, get_multi_agent_runner
 from app.graph.multi_agent_graph import MultiAgentGraphRunner
+from app.repositories.workflow_run import WorkflowRunRepository
 from app.schemas.multi_agent import (
     MultiAgentAnalyzeRequest,
     MultiAgentAnalyzeResponse,
@@ -27,6 +30,10 @@ def analyze_with_multi_agent(
         MultiAgentGraphRunner,
         Depends(get_multi_agent_runner),
     ],
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
 ) -> MultiAgentAnalyzeResponse:
     try:
         state = runner.run(f"分析市场数据 {payload.market_data_id}")
@@ -35,6 +42,23 @@ def analyze_with_multi_agent(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+
+    completed_at = state["workflow_completed_at"]
+    if completed_at is None:
+        raise RuntimeError("Completed workflow is missing workflow_completed_at")
+
+    audit_repository = WorkflowRunRepository(db=db)
+    audit_repository.create_success(
+        workflow_id=state["workflow_id"],
+        market_data_id=payload.market_data_id,
+        started_at=datetime.fromisoformat(
+            state["workflow_started_at"].replace("Z", "+00:00")
+        ),
+        completed_at=datetime.fromisoformat(
+            completed_at.replace("Z", "+00:00")
+        ),
+        workflow_latency_ms=state.get("workflow_latency_ms"),
+    )
 
     return MultiAgentAnalyzeResponse(
         workflow_id=state["workflow_id"],
