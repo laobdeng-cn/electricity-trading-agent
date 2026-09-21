@@ -11,6 +11,10 @@
         :default-active="$route.path"
         class="sidebar-menu"
       >
+        <el-menu-item index="/">
+          Dashboard
+        </el-menu-item>
+
         <el-menu-item index="/workflow-audit">
           Workflow Audit
         </el-menu-item>
