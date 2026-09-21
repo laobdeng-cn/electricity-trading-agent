@@ -9,9 +9,11 @@ import { ElMessage } from "element-plus";
 import {
   fetchWorkflowRun,
   fetchWorkflowRuns,
+  fetchWorkflowRunStats,
 } from "../api/workflowRuns";
 import type {
   WorkflowRun,
+  WorkflowRunStats,
   WorkflowRunStatus,
 } from "../types/workflowRun";
 
@@ -27,6 +29,13 @@ const total = ref(0);
 const pageSize = ref(10);
 const currentPage = ref(1);
 const loading = ref(false);
+const statsLoading = ref(false);
+const stats = ref<WorkflowRunStats>({
+  total: 0,
+  success: 0,
+  failed: 0,
+  average_latency_ms: null,
+});
 
 const draftStatus = ref<WorkflowRunStatus | "">("");
 const draftMarketDataId = ref<number | undefined>(undefined);
@@ -101,6 +110,33 @@ async function loadRuns(): Promise<void> {
   }
 }
 
+
+async function loadStats(): Promise<void> {
+  statsLoading.value = true;
+
+  try {
+    const filters = appliedFilters.value;
+    stats.value = await fetchWorkflowRunStats({
+      status: filters.status,
+      market_data_id: filters.marketDataId,
+      started_from: filters.startedFrom,
+      started_to: filters.startedTo,
+    });
+  } catch (error) {
+    console.error(error);
+    ElMessage.error("Workflow Audit 统计加载失败");
+  } finally {
+    statsLoading.value = false;
+  }
+}
+
+function refreshAudit(): void {
+  void Promise.all([
+    loadRuns(),
+    loadStats(),
+  ]);
+}
+
 function applyFilters(): void {
   const range = draftStartedRange.value;
 
@@ -112,7 +148,7 @@ function applyFilters(): void {
   };
 
   currentPage.value = 1;
-  void loadRuns();
+  refreshAudit();
 }
 
 function resetFilters(): void {
@@ -121,7 +157,7 @@ function resetFilters(): void {
   draftStartedRange.value = null;
   appliedFilters.value = {};
   currentPage.value = 1;
-  void loadRuns();
+  refreshAudit();
 }
 
 async function openDetail(row: WorkflowRun): Promise<void> {
@@ -153,7 +189,7 @@ function handleSizeChange(size: number): void {
 }
 
 onMounted(() => {
-  void loadRuns();
+  refreshAudit();
 });
 </script>
 
@@ -168,11 +204,42 @@ onMounted(() => {
       </div>
 
       <el-button
-        :loading="loading"
-        @click="loadRuns"
+        :loading="loading || statsLoading"
+        @click="refreshAudit"
       >
         刷新
       </el-button>
+    </div>
+
+    <div
+      v-loading="statsLoading"
+      class="stats-grid"
+    >
+      <div class="stat-card">
+        <div class="stat-label">总运行数</div>
+        <div class="stat-value">{{ stats.total }}</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">成功数</div>
+        <div class="stat-value success-value">
+          {{ stats.success }}
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">失败数</div>
+        <div class="stat-value failed-value">
+          {{ stats.failed }}
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">平均延迟</div>
+        <div class="stat-value">
+          {{ formatLatency(stats.average_latency_ms) }}
+        </div>
+      </div>
     </div>
 
     <div class="filter-panel">
@@ -402,6 +469,41 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.stat-label {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.stat-value {
+  margin-top: 8px;
+  color: #111827;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.success-value {
+  color: #16a34a;
+}
+
+.failed-value {
+  color: #dc2626;
+}
+
 .filter-panel {
   margin-bottom: 18px;
   padding: 16px 16px 0;
