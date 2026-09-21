@@ -212,7 +212,7 @@ def test_workflow_run_api_lists_recent_records() -> None:
     ]
     db = FakeWorkflowRunDB(
         workflow_runs=runs,
-        total=7,
+        total=2,
     )
     app.dependency_overrides[get_db] = lambda: db
 
@@ -250,13 +250,16 @@ def test_workflow_run_api_filters_by_status() -> None:
             status_value="failed",
         ),
     ]
-    db = FakeWorkflowRunDB(workflow_runs=runs)
+    db = FakeWorkflowRunDB(
+        workflow_runs=runs,
+        total=7,
+    )
     app.dependency_overrides[get_db] = lambda: db
 
     try:
         with TestClient(app) as client:
             response = client.get(
-                "/api/workflow-runs?status=failed&limit=10&offset=0"
+                "/api/workflow-runs?status=failed&limit=10&offset=3"
             )
     finally:
         app.dependency_overrides.clear()
@@ -266,7 +269,7 @@ def test_workflow_run_api_filters_by_status() -> None:
     assert body["items"][0]["status"] == "failed"
     assert body["total"] == 7
     assert body["limit"] == 10
-    assert body["offset"] == 0
+    assert body["offset"] == 3
     assert db.scalars_calls == 1
     assert db.scalar_calls == 1
 
