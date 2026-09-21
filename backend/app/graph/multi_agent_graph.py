@@ -63,6 +63,7 @@ class MultiAgentGraphRunner:
             "request": request,
             "workflow_id": str(uuid4()),
             "workflow_started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "workflow_completed_at": None,
             "market_analysis": None,
             "risk_analysis": None,
             "decision_analysis": None,
@@ -82,6 +83,10 @@ class MultiAgentGraphRunner:
         result["workflow_latency_ms"] = round(
             (perf_counter() - started_at) * 1000,
             3,
+        )
+        result["workflow_completed_at"] = datetime.now(timezone.utc).isoformat().replace(
+            "+00:00",
+            "Z",
         )
         return result
 
