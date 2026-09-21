@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.agents.market_analyst import MarketDataNotFoundError
 from app.core.dependencies import get_db, get_multi_agent_runner
+from app.graph.multi_agent_graph import WorkflowExecutionError
 from app.main import app
 from app.models.workflow_run import WorkflowRun
 
@@ -69,7 +70,17 @@ class FakeDBSession:
 
 class MissingMarketDataRunner:
     def run(self, request: str):
-        raise MarketDataNotFoundError("Market data 999 not found")
+        original_exception = MarketDataNotFoundError(
+            "Market data 999 not found"
+        )
+        raise WorkflowExecutionError(
+            workflow_id="failed-workflow-id",
+            workflow_started_at="2026-09-21T15:30:00.000Z",
+            workflow_completed_at="2026-09-21T15:30:00.125Z",
+            workflow_latency_ms=125.0,
+            failed_agent="market_analyst",
+            original_exception=original_exception,
+        ) from original_exception
 
 
 def test_multi_agent_api_returns_structured_workflow_result() -> None:
@@ -144,7 +155,18 @@ def test_multi_agent_api_returns_404_when_market_data_is_missing() -> None:
     assert response.json() == {
         "detail": "Market data 999 not found",
     }
-    assert db.added == []
+    assert db.commit_count == 1
+    assert db.refresh_count == 1
+    assert len(db.added) == 1
+    workflow_run = db.added[0]
+    assert isinstance(workflow_run, WorkflowRun)
+    assert workflow_run.workflow_id == "failed-workflow-id"
+    assert workflow_run.market_data_id == 999
+    assert workflow_run.status == "failed"
+    assert workflow_run.failed_agent == "market_analyst"
+    assert workflow_run.error_type == "MarketDataNotFoundError"
+    assert workflow_run.error_message == "Market data 999 not found"
+    assert workflow_run.workflow_latency_ms == 125.0
 
 
 def test_multi_agent_api_rejects_invalid_market_data_id() -> None:
