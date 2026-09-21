@@ -192,6 +192,8 @@ def test_multi_agent_graph_generates_unique_workflow_ids() -> None:
     second_workflow_id = second_state["workflow_id"]
     first_started_at = first_state["workflow_started_at"]
     second_started_at = second_state["workflow_started_at"]
+    first_completed_at = first_state["workflow_completed_at"]
+    second_completed_at = second_state["workflow_completed_at"]
 
     assert first_workflow_id
     assert second_workflow_id
@@ -203,3 +205,12 @@ def test_multi_agent_graph_generates_unique_workflow_ids() -> None:
     second_started = datetime.fromisoformat(second_started_at.replace("Z", "+00:00"))
     assert first_started.tzinfo == timezone.utc
     assert second_started.tzinfo == timezone.utc
+
+    assert first_completed_at is not None
+    assert second_completed_at is not None
+    first_completed = datetime.fromisoformat(first_completed_at.replace("Z", "+00:00"))
+    second_completed = datetime.fromisoformat(second_completed_at.replace("Z", "+00:00"))
+    assert first_completed.tzinfo == timezone.utc
+    assert second_completed.tzinfo == timezone.utc
+    assert first_completed >= first_started
+    assert second_completed >= second_started
