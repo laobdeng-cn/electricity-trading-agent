@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -82,18 +82,15 @@ class WorkflowRunRepository:
         )
         return self.db.scalar(statement)
 
-    def list_recent(
-        self,
+    @staticmethod
+    def _apply_filters(
+        statement,
         *,
-        limit: int = 20,
-        offset: int = 0,
         status: str | None = None,
         market_data_id: int | None = None,
         started_from: datetime | None = None,
         started_to: datetime | None = None,
-    ) -> list[WorkflowRun]:
-        statement = select(WorkflowRun)
-
+    ):
         if status is not None:
             statement = statement.where(
                 WorkflowRun.status == status
@@ -114,6 +111,26 @@ class WorkflowRunRepository:
                 WorkflowRun.started_at <= started_to
             )
 
+        return statement
+
+    def list_recent(
+        self,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+        market_data_id: int | None = None,
+        started_from: datetime | None = None,
+        started_to: datetime | None = None,
+    ) -> list[WorkflowRun]:
+        statement = self._apply_filters(
+            select(WorkflowRun),
+            status=status,
+            market_data_id=market_data_id,
+            started_from=started_from,
+            started_to=started_to,
+        )
+
         statement = (
             statement
             .order_by(
@@ -125,3 +142,21 @@ class WorkflowRunRepository:
         )
 
         return list(self.db.scalars(statement).all())
+
+    def count_recent(
+        self,
+        *,
+        status: str | None = None,
+        market_data_id: int | None = None,
+        started_from: datetime | None = None,
+        started_to: datetime | None = None,
+    ) -> int:
+        statement = self._apply_filters(
+            select(func.count()).select_from(WorkflowRun),
+            status=status,
+            market_data_id=market_data_id,
+            started_from=started_from,
+            started_to=started_to,
+        )
+        total = self.db.scalar(statement)
+        return int(total or 0)
