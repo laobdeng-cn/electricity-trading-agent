@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -71,3 +72,12 @@ class WorkflowRunRepository:
             raise
 
         return workflow_run
+
+    def get_by_workflow_id(
+        self,
+        workflow_id: str,
+    ) -> WorkflowRun | None:
+        statement = select(WorkflowRun).where(
+            WorkflowRun.workflow_id == workflow_id
+        )
+        return self.db.scalar(statement)
