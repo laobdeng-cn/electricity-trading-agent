@@ -88,12 +88,30 @@ class WorkflowRunRepository:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
+        market_data_id: int | None = None,
+        started_from: datetime | None = None,
+        started_to: datetime | None = None,
     ) -> list[WorkflowRun]:
         statement = select(WorkflowRun)
 
         if status is not None:
             statement = statement.where(
                 WorkflowRun.status == status
+            )
+
+        if market_data_id is not None:
+            statement = statement.where(
+                WorkflowRun.market_data_id == market_data_id
+            )
+
+        if started_from is not None:
+            statement = statement.where(
+                WorkflowRun.started_at >= started_from
+            )
+
+        if started_to is not None:
+            statement = statement.where(
+                WorkflowRun.started_at <= started_to
             )
 
         statement = (
