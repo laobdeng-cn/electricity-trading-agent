@@ -12,13 +12,26 @@ import {
 } from "../api/workflowRuns";
 import type {
   WorkflowRun,
+  WorkflowRunStatus,
 } from "../types/workflowRun";
+
+interface AppliedFilters {
+  status?: WorkflowRunStatus;
+  marketDataId?: number;
+  startedFrom?: string;
+  startedTo?: string;
+}
 
 const rows = ref<WorkflowRun[]>([]);
 const total = ref(0);
 const pageSize = ref(10);
 const currentPage = ref(1);
 const loading = ref(false);
+
+const draftStatus = ref<WorkflowRunStatus | "">("");
+const draftMarketDataId = ref<number | undefined>(undefined);
+const draftStartedRange = ref<[Date, Date] | null>(null);
+const appliedFilters = ref<AppliedFilters>({});
 
 const drawerVisible = ref(false);
 const detailLoading = ref(false);
@@ -68,9 +81,14 @@ async function loadRuns(): Promise<void> {
   loading.value = true;
 
   try {
+    const filters = appliedFilters.value;
     const result = await fetchWorkflowRuns({
       limit: pageSize.value,
       offset: offset.value,
+      status: filters.status,
+      market_data_id: filters.marketDataId,
+      started_from: filters.startedFrom,
+      started_to: filters.startedTo,
     });
 
     rows.value = result.items;
@@ -81,6 +99,29 @@ async function loadRuns(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function applyFilters(): void {
+  const range = draftStartedRange.value;
+
+  appliedFilters.value = {
+    status: draftStatus.value || undefined,
+    marketDataId: draftMarketDataId.value,
+    startedFrom: range?.[0]?.toISOString(),
+    startedTo: range?.[1]?.toISOString(),
+  };
+
+  currentPage.value = 1;
+  void loadRuns();
+}
+
+function resetFilters(): void {
+  draftStatus.value = "";
+  draftMarketDataId.value = undefined;
+  draftStartedRange.value = null;
+  appliedFilters.value = {};
+  currentPage.value = 1;
+  void loadRuns();
 }
 
 async function openDetail(row: WorkflowRun): Promise<void> {
@@ -132,6 +173,59 @@ onMounted(() => {
       >
         刷新
       </el-button>
+    </div>
+
+    <div class="filter-panel">
+      <el-form inline class="filter-form">
+        <el-form-item label="Status">
+          <el-select
+            v-model="draftStatus"
+            placeholder="全部"
+            clearable
+            style="width: 140px"
+          >
+            <el-option label="success" value="success" />
+            <el-option label="failed" value="failed" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Market Data ID">
+          <el-input-number
+            v-model="draftMarketDataId"
+            :min="1"
+            :controls="false"
+            placeholder="输入 ID"
+            style="width: 150px"
+          />
+        </el-form-item>
+
+        <el-form-item label="Started Time">
+          <el-date-picker
+            v-model="draftStartedRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            style="width: 390px"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <el-button
+            type="primary"
+            :loading="loading"
+            @click="applyFilters"
+          >
+            查询
+          </el-button>
+          <el-button
+            :disabled="loading"
+            @click="resetFilters"
+          >
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
     </div>
 
     <el-table
@@ -306,3 +400,19 @@ onMounted(() => {
     </div>
   </el-drawer>
 </template>
+
+<style scoped>
+.filter-panel {
+  margin-bottom: 18px;
+  padding: 16px 16px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+</style>
