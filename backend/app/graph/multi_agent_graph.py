@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
@@ -61,6 +62,7 @@ class MultiAgentGraphRunner:
         initial_state: MultiAgentState = {
             "request": request,
             "workflow_id": str(uuid4()),
+            "workflow_started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "market_analysis": None,
             "risk_analysis": None,
             "decision_analysis": None,
