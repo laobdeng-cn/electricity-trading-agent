@@ -24,3 +24,10 @@ class WorkflowRunPageResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class WorkflowRunStatsResponse(BaseModel):
+    total: int
+    success: int
+    failed: int
+    average_latency_ms: float | None
