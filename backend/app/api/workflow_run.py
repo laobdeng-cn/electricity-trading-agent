@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_db
 from app.models.workflow_run import WorkflowRun
 from app.repositories.workflow_run import WorkflowRunRepository
-from app.schemas.workflow_run import WorkflowRunResponse
+from app.schemas.workflow_run import (
+    WorkflowRunPageResponse,
+    WorkflowRunResponse,
+)
 
 
 router = APIRouter(
@@ -19,7 +22,7 @@ router = APIRouter(
 
 @router.get(
     "",
-    response_model=list[WorkflowRunResponse],
+    response_model=WorkflowRunPageResponse,
 )
 def list_workflow_runs(
     db: Annotated[
@@ -50,7 +53,7 @@ def list_workflow_runs(
         datetime | None,
         Query(),
     ] = None,
-) -> list[WorkflowRun]:
+) -> WorkflowRunPageResponse:
     if (
         started_from is not None
         and started_to is not None
@@ -64,13 +67,26 @@ def list_workflow_runs(
         )
 
     repository = WorkflowRunRepository(db=db)
-    return repository.list_recent(
+    items = repository.list_recent(
         limit=limit,
         offset=offset,
         status=status_filter,
         market_data_id=market_data_id,
         started_from=started_from,
         started_to=started_to,
+    )
+    total = repository.count_recent(
+        status=status_filter,
+        market_data_id=market_data_id,
+        started_from=started_from,
+        started_to=started_to,
+    )
+
+    return WorkflowRunPageResponse(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
     )
 
 
