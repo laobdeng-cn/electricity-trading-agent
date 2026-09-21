@@ -24,6 +24,28 @@ ExplanationAgentStep = Callable[
 ]
 
 
+class WorkflowExecutionError(RuntimeError):
+    """Carries workflow trace metadata when a graph execution fails."""
+
+    def __init__(
+        self,
+        *,
+        workflow_id: str,
+        workflow_started_at: str,
+        workflow_completed_at: str,
+        workflow_latency_ms: float,
+        failed_agent: str | None,
+        original_exception: Exception,
+    ) -> None:
+        super().__init__(str(original_exception))
+        self.workflow_id = workflow_id
+        self.workflow_started_at = workflow_started_at
+        self.workflow_completed_at = workflow_completed_at
+        self.workflow_latency_ms = workflow_latency_ms
+        self.failed_agent = failed_agent
+        self.original_exception = original_exception
+
+
 class MultiAgentGraphRunner:
     """Deterministic market/risk/decision workflow with optional explanation."""
 
@@ -79,7 +101,31 @@ class MultiAgentGraphRunner:
             "visited_agents": [],
         }
         started_at = perf_counter()
-        result = self.graph.invoke(initial_state)
+        try:
+            result = self.graph.invoke(initial_state)
+        except Exception as exc:
+            completed_at = datetime.now(timezone.utc).isoformat().replace(
+                "+00:00",
+                "Z",
+            )
+            workflow_latency_ms = round(
+                (perf_counter() - started_at) * 1000,
+                3,
+            )
+            failed_agent = getattr(
+                exc,
+                "_workflow_failed_agent",
+                None,
+            )
+            raise WorkflowExecutionError(
+                workflow_id=initial_state["workflow_id"],
+                workflow_started_at=initial_state["workflow_started_at"],
+                workflow_completed_at=completed_at,
+                workflow_latency_ms=workflow_latency_ms,
+                failed_agent=failed_agent,
+                original_exception=exc,
+            ) from exc
+
         result["workflow_latency_ms"] = round(
             (perf_counter() - started_at) * 1000,
             3,
@@ -119,12 +165,13 @@ class MultiAgentGraphRunner:
         started_at = perf_counter()
         try:
             analysis = self.market_analyst(state["request"])
-        except Exception:
+        except Exception as exc:
             state["agent_status"] = self._with_status(
                 state,
                 "market_analyst",
                 "failed",
             )
+            setattr(exc, "_workflow_failed_agent", "market_analyst")
             raise
 
         return {
@@ -156,19 +203,22 @@ class MultiAgentGraphRunner:
                 "risk",
                 "failed",
             )
-            raise RuntimeError(
+            exc = RuntimeError(
                 "Risk agent requires market analysis before execution"
             )
+            setattr(exc, "_workflow_failed_agent", "risk")
+            raise exc
 
         started_at = perf_counter()
         try:
             risk_analysis = self.risk_agent(market_analysis)
-        except Exception:
+        except Exception as exc:
             state["agent_status"] = self._with_status(
                 state,
                 "risk",
                 "failed",
             )
+            setattr(exc, "_workflow_failed_agent", "risk")
             raise
 
         return {
@@ -201,9 +251,11 @@ class MultiAgentGraphRunner:
                 "decision",
                 "failed",
             )
-            raise RuntimeError(
+            exc = RuntimeError(
                 "Decision agent requires market and risk analyses"
             )
+            setattr(exc, "_workflow_failed_agent", "decision")
+            raise exc
 
         started_at = perf_counter()
         try:
@@ -211,12 +263,13 @@ class MultiAgentGraphRunner:
                 market_analysis,
                 risk_analysis,
             )
-        except Exception:
+        except Exception as exc:
             state["agent_status"] = self._with_status(
                 state,
                 "decision",
                 "failed",
             )
+            setattr(exc, "_workflow_failed_agent", "decision")
             raise
 
         summary = decision_analysis.get("summary")
@@ -258,16 +311,20 @@ class MultiAgentGraphRunner:
                 "explanation",
                 "failed",
             )
-            raise RuntimeError(
+            exc = RuntimeError(
                 "Explanation agent requires market, risk, and decision analyses"
             )
+            setattr(exc, "_workflow_failed_agent", "explanation")
+            raise exc
         if self.explanation_agent is None:
             state["agent_status"] = self._with_status(
                 state,
                 "explanation",
                 "failed",
             )
-            raise RuntimeError("Explanation agent is not configured")
+            exc = RuntimeError("Explanation agent is not configured")
+            setattr(exc, "_workflow_failed_agent", "explanation")
+            raise exc
 
         started_at = perf_counter()
         try:
@@ -297,12 +354,13 @@ class MultiAgentGraphRunner:
                 explanation_model = None
                 explanation_latency_ms = None
                 explanation_error = None
-        except Exception:
+        except Exception as exc:
             state["agent_status"] = self._with_status(
                 state,
                 "explanation",
                 "failed",
             )
+            setattr(exc, "_workflow_failed_agent", "explanation")
             raise
 
         node_status: AgentExecutionStatus = (
