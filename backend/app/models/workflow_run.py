@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, func
+from sqlalchemy import DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -46,6 +46,21 @@ class WorkflowRun(Base):
         String(32),
         nullable=False,
         index=True,
+    )
+
+    failed_agent: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    error_type: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
