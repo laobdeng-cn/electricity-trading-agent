@@ -14,6 +14,9 @@ def test_workflow_run_model_registers_expected_table() -> None:
         "completed_at",
         "workflow_latency_ms",
         "status",
+        "failed_agent",
+        "error_type",
+        "error_message",
         "created_at",
     } == set(table.columns.keys())
 
@@ -23,3 +26,7 @@ def test_workflow_run_model_registers_expected_table() -> None:
     assert table.c.status.index is True
     assert table.c.completed_at.nullable is True
     assert table.c.workflow_latency_ms.nullable is True
+
+    assert table.c.failed_agent.nullable is True
+    assert table.c.error_type.nullable is True
+    assert table.c.error_message.nullable is True
