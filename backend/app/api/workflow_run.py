@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -36,12 +38,39 @@ def list_workflow_runs(
         Literal["success", "failed"] | None,
         Query(alias="status"),
     ] = None,
+    market_data_id: Annotated[
+        int | None,
+        Query(ge=1),
+    ] = None,
+    started_from: Annotated[
+        datetime | None,
+        Query(),
+    ] = None,
+    started_to: Annotated[
+        datetime | None,
+        Query(),
+    ] = None,
 ) -> list[WorkflowRun]:
+    if (
+        started_from is not None
+        and started_to is not None
+        and started_from > started_to
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "started_from must be less than or equal to started_to"
+            ),
+        )
+
     repository = WorkflowRunRepository(db=db)
     return repository.list_recent(
         limit=limit,
         offset=offset,
         status=status_filter,
+        market_data_id=market_data_id,
+        started_from=started_from,
+        started_to=started_to,
     )
 
 
