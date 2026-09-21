@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.agents.market_analyst import MarketDataNotFoundError
 from app.core.dependencies import get_db, get_multi_agent_runner
-from app.graph.multi_agent_graph import MultiAgentGraphRunner
+from app.graph.multi_agent_graph import (
+    MultiAgentGraphRunner,
+    WorkflowExecutionError,
+)
 from app.repositories.workflow_run import WorkflowRunRepository
 from app.schemas.multi_agent import (
     MultiAgentAnalyzeRequest,
@@ -37,6 +40,31 @@ def analyze_with_multi_agent(
 ) -> MultiAgentAnalyzeResponse:
     try:
         state = runner.run(f"分析市场数据 {payload.market_data_id}")
+    except WorkflowExecutionError as exc:
+        original_exception = exc.original_exception
+        audit_repository = WorkflowRunRepository(db=db)
+        audit_repository.create_failed(
+            workflow_id=exc.workflow_id,
+            market_data_id=payload.market_data_id,
+            started_at=datetime.fromisoformat(
+                exc.workflow_started_at.replace("Z", "+00:00")
+            ),
+            completed_at=datetime.fromisoformat(
+                exc.workflow_completed_at.replace("Z", "+00:00")
+            ),
+            workflow_latency_ms=exc.workflow_latency_ms,
+            failed_agent=exc.failed_agent,
+            error_type=type(original_exception).__name__,
+            error_message=str(original_exception),
+        )
+
+        if isinstance(original_exception, MarketDataNotFoundError):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(original_exception),
+            ) from original_exception
+
+        raise original_exception
     except MarketDataNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
