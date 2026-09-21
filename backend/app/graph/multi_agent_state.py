@@ -8,6 +8,7 @@ class MultiAgentState(TypedDict):
     """Shared state for the multi-agent workflow prototype."""
 
     request: str
+    workflow_id: str
     market_analysis: dict[str, Any] | None
     risk_analysis: dict[str, Any] | None
     decision_analysis: dict[str, Any] | None
